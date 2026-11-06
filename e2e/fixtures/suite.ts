@@ -181,6 +181,48 @@ export async function launchCanvas(options: {
   };
 }
 
+/**
+ * Launch a staged app by id, with exactly the environment the caller gives it.
+ *
+ * Used by the boot check: every binary must open a window, because a missing
+ * production dependency or a broken custom protocol shows up as a blank page
+ * rather than an error.
+ */
+export async function launchStaged(
+  id: string,
+  options: {
+    root: string;
+    args?: readonly string[];
+    env?: Record<string, string>;
+  },
+): Promise<LaunchedApp> {
+  const app = appById(id);
+  if (app === null) throw new Error(`unknown app ${id}`);
+  const executable = executableOf(app);
+  if (!existsSync(executable)) {
+    throw new Error(`${id} is not staged (${executable}). Run \`pnpm apps:stage\` first.`);
+  }
+  const launched = await electron.launch({
+    executablePath: executable,
+    args: [...(options.args ?? [])],
+    env: {
+      ...process.env,
+      ELECTRON_DISABLE_SECURITY_WARNINGS: "1",
+      ...options.env,
+    },
+    timeout: 60_000,
+  });
+  const page = await launched.firstWindow();
+  await page.waitForLoadState("domcontentloaded");
+  return {
+    app: launched,
+    page,
+    close: async () => {
+      await launched.close().catch(() => {});
+    },
+  };
+}
+
 export async function launchStart(options: {
   root: string;
   files?: readonly string[];
