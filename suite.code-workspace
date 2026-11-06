@@ -29,10 +29,10 @@
     "files.exclude": {
       "**/.dev": true,
       "**/node_modules": true,
-      "**/dist": true,
       "**/release": true,
       "**/test-results": true,
-      "**/storybook-static": true
+      "**/storybook-static": true,
+      "**/.turbo": true
     },
     "search.exclude": {
       "**/.dev": true,
