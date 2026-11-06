@@ -20,20 +20,25 @@ node scripts/ci.mjs --dry      # what it would run
 
 `suite-sync` goes first because the apps pin its tags; a failure there explains the four that follow.
 
-## Nightly
+## The cross-app suite runs when you ask
 
-The cross-app suite is too slow to sit in front of a push, so it runs on a timer:
+It is too slow to sit in front of a push: it stages four real binaries, needs a display, and takes about
+forty seconds once staged.
 
 ```sh
-cp suite-dev/ops/suite-ci.service ~/.config/systemd/user/
-cp suite-dev/ops/suite-ci.timer  ~/.config/systemd/user/
-systemctl --user daemon-reload
-systemctl --user enable --now suite-ci.timer
-systemctl --user list-timers suite-ci.timer
-journalctl --user -u suite-ci.service -n 50
+node scripts/ci.mjs --e2e
+# or, against what is already staged:
+DISPLAY=:1 xvfb-run -a pnpm e2e
 ```
 
-It needs the machine awake. A missed night is a missed night and nothing depends on it.
+There is no timer. It ran on a nightly systemd timer for exactly as long as it took to notice the timer
+was never installed, and a file describing an automatic run nobody enabled is the same artefact as a
+workflow that cannot start. Nothing detects a broken binary combination overnight; the binaries only
+change when a release is cut, and that is already a deliberate manual act.
+
+It earns its keep: this suite is what caught `ts-mls` importing `@noble/ciphers` without declaring it —
+a crash that no unit test could see, because the workspace hoisted the package and only a packaged app
+could miss it.
 
 ## If a hosted runner ever appears
 

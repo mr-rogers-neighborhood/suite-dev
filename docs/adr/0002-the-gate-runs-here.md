@@ -28,8 +28,9 @@ network call — broken by the updater, and fixed by moving the network read int
 2. **`scripts/ci.mjs` in this repository**, running every repository's gate in dependency order —
    `suite-sync` first, because the apps pin its tags — and stopping at the first failure with the step
    named. `--e2e` adds the cross-app suite.
-3. **A systemd user timer** for the nightly run, which is where the e2e belongs: it stages four real
-   binaries, needs a display, and is the one thing too slow to sit in front of a push.
+3. **The cross-app suite on demand** — `node scripts/ci.mjs --e2e`. It stages four real binaries and
+   needs a display, which is why it is not in front of a push, and it is not on a timer either: the
+   timer was written, never installed, and removed rather than left claiming a run it never made.
 
 The signing key stays where it already was. There is no CI secret, because there is no CI: the
 publisher key lives at `~/.config/suite/update-key.pem` and is used by `scripts/sign-release.mjs` when
@@ -43,7 +44,9 @@ a release is made deliberately.
   being true the moment there is a second contributor, and this ADR is the thing to revisit then.
 - A fresh clone has no hooks until `pnpm install` runs, because `prepare` installs them. A clone that
   is never installed is never gated, which is the same trade every hook-based setup makes.
-- The nightly run needs the machine to be awake. A missed night is a missed night; it does not block
-  anything, which is the point of it being separate from the push gate.
+- **Nothing runs the cross-app suite unless a person does.** The trade is real: no overnight detection of
+  "these four binaries stopped working together". It is accepted because the binaries only change when a
+  release is cut, and cutting a release is already a deliberate manual act. If it turns out to matter,
+  the unit files are one `git show` away.
 - The workflow files are in the history. If Actions becomes usable, `git show` recovers them and they
   were validated with `actionlint`; nothing about them was wrong except that they never ran.
