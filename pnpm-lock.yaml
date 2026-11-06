@@ -172,9 +172,15 @@ importers:
       '@playwright/test':
         specifier: ^1.64.1
         version: 1.64.1
+      '@suite/sync':
+        specifier: github:mr-rogers-neighborhood/suite-sync#v0.6.1&path:/packages/protocol
+        version: https://codeload.github.com/mr-rogers-neighborhood/suite-sync/tar.gz/d14340eaa12924d2471ab5804a02f8db75ef69af#path:/packages/protocol(@noble/ciphers@2.1.1)
       '@types/node':
         specifier: ^24.10.0
         version: 24.19.2
+      loro-crdt:
+        specifier: ^1.17.1
+        version: 1.17.1
       typescript:
         specifier: ~5.9.3
         version: 5.9.3
@@ -253,6 +259,14 @@ packages:
     cpu: [x64]
     os: [win32]
 
+  '@hpke/common@1.11.0':
+    resolution: {integrity: sha512-ZV551VgT4+pjTN1xlM1Zu9CrvLcff1sV1F2iFQJgg3gVNLy/hiOgLOjK3cz5LZYMKYkt54xe7ityu0rTYVSDGw==}
+    engines: {node: '>=16.0.0'}
+
+  '@hpke/core@1.9.0':
+    resolution: {integrity: sha512-pFxWl1nNJeQCSUFs7+GAblHvXBCjn9EPN65vdKlYQil2aURaRxfGMO6vBKGqm1YHTKwiAxJQNEI70PbSowMP9Q==}
+    engines: {node: '>=16.0.0'}
+
   '@jridgewell/resolve-uri@3.1.2':
     resolution: {integrity: sha512-bRISgCIjP20/tbWSPWMEi54QVPRZExkuD9lJL+UIxUKtwVJA8wW1Trb1jMs1RFXo1CBTNZ/5hpC9QvmKWdopKw==}
     engines: {node: '>=6.0.0'}
@@ -262,6 +276,14 @@ packages:
 
   '@jridgewell/trace-mapping@0.3.31':
     resolution: {integrity: sha512-zzNR+SdQSDJzc8joaeP8QQoCQr8NuYx2dIIytl1QeBEZHJ9uW6hebsrYgbz8hJwUQao3TWCMtmfV8Nu1twOLAw==}
+
+  '@noble/ciphers@2.1.1':
+    resolution: {integrity: sha512-bysYuiVfhxNJuldNXlFEitTVdNnYUc+XNJZd7Qm2a5j1vZHgY+fazadNFWFaMK/2vye0JVlxV3gHmC0WDfAOQw==}
+    engines: {node: '>= 20.19.0'}
+
+  '@noble/hashes@2.4.0':
+    resolution: {integrity: sha512-X5XaVWZIBCT7HHZGm5I7ZQXDwLG+bGXuSrMQAW+7Zvl87h1kmc1ZB1VSRJcpUfoUrGQp4Fkoxm5kZ+Ms+aW+eA==}
+    engines: {node: '>= 20.19.0'}
 
   '@oxc-project/types@0.156.0':
     resolution: {integrity: sha512-1Duyg48TdJNdyhEB8Xn1L36bT9Pv6GUtlKjHxOys8xkaF/rQq3XJE+bAurSK/AgIz5mGFsb77cn9Pb20+WCScw==}
@@ -369,6 +391,10 @@ packages:
 
   '@rolldown/pluginutils@1.0.1':
     resolution: {integrity: sha512-2j9bGt5Jh8hj+vPtgzPtl72j0yRxHAyumoo6TNfAjsLB04UtpSvPbPcDcBMxz7n+9CYB0c1GxQFxYRg2jimqGw==}
+
+  '@suite/sync@https://codeload.github.com/mr-rogers-neighborhood/suite-sync/tar.gz/d14340eaa12924d2471ab5804a02f8db75ef69af#path:/packages/protocol':
+    resolution: {gitHosted: true, integrity: sha512-vmlm32pmr7Ul5kJpcfinaxIr26YlzIa8ERq47QzuybZ5s+oKoTg/5rSk6hCc3T3jgV3ZC3C8xWT5m7NuWsWtgw==, path: /packages/protocol, tarball: https://codeload.github.com/mr-rogers-neighborhood/suite-sync/tar.gz/d14340eaa12924d2471ab5804a02f8db75ef69af}
+    version: 0.6.1
 
   '@types/chai@5.2.3':
     resolution: {integrity: sha512-Mw558oeA9fFbv65/y4mHtXDs9bPnFMZAL/jxdPFUpOHHIXX91mcgEHbS5Lahr+pwZFR8A7GQleRWeI6cGFC2UA==}
@@ -506,6 +532,9 @@ packages:
     resolution: {integrity: sha512-WkUDrojuJs0xkgGf2udWxa3yGBRxPtxUkB79i6aCZLRgc7PM8fZe9TosfPDcvEpQZbuFASnHYmRLBLUbmLOIIA==}
     engines: {node: '>= 12.0.0'}
 
+  loro-crdt@1.17.1:
+    resolution: {integrity: sha512-83hWRYG6eMMpPezm+yXWlOqCuUsC0BYY1MVCPW9x2zlikgkHhL7GC7Q6JFH+Hjvauyn287Q1MiwTuRW0lUOUag==}
+
   magic-string@1.4.5:
     resolution: {integrity: sha512-oLLC2+YvQUfAa+vxoufE/yc1icb87M9iXIRqAoR/2EhE/8cb3SF/+Gi0c2By1B+5Vz2e2vQtUvHiu1+63Znh+w==}
 
@@ -562,6 +591,30 @@ packages:
   tinyglobby@0.2.17:
     resolution: {integrity: sha512-wXR/dYpcqKmfWpEdZjiKJOwCNFndD0DMnrW/cYjVGttEkBfVgcLFHoNrlj47mjOVic9yyNu65alsgF4NQyTa2g==}
     engines: {node: '>=12.0.0'}
+
+  ts-mls@1.6.4:
+    resolution: {integrity: sha512-BFb9qJ3V1+HIuifC+MtnlROEj3oc6NEzA7Ig1/LAmANDRhNay7UCnwkzijzHH9cav5wf1BoJw8KQ2mXiEhPy1Q==}
+    peerDependencies:
+      '@hpke/chacha20poly1305': 1.8.0
+      '@hpke/dhkem-x448': 1.8.0
+      '@hpke/hybridkem-x-wing': 0.7.0
+      '@hpke/ml-kem': 0.3.0
+      '@noble/ciphers': 2.1.1
+      '@noble/curves': 2.0.1
+      '@noble/post-quantum': 0.5.2
+    peerDependenciesMeta:
+      '@hpke/chacha20poly1305':
+        optional: true
+      '@hpke/dhkem-x448':
+        optional: true
+      '@hpke/hybridkem-x-wing':
+        optional: true
+      '@hpke/ml-kem':
+        optional: true
+      '@noble/curves':
+        optional: true
+      '@noble/post-quantum':
+        optional: true
 
   typescript@5.9.3:
     resolution: {integrity: sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw==}
@@ -660,6 +713,9 @@ packages:
     engines: {node: '>=20.11'}
     hasBin: true
 
+  zod@4.6.7:
+    resolution: {integrity: sha512-g8W2D2kU6a8untc053fX1uVBKzM7yqAxW/3zwk83+6RyF2+SKOuV+c0wBDhUwzV1PaGapmZH+rmcUzPf+3CGwg==}
+
 snapshots:
 
   '@biomejs/biome@2.6.5':
@@ -705,6 +761,12 @@ snapshots:
   '@biomejs/cli-win32-x64@2.6.5':
     optional: true
 
+  '@hpke/common@1.11.0': {}
+
+  '@hpke/core@1.9.0':
+    dependencies:
+      '@hpke/common': 1.11.0
+
   '@jridgewell/resolve-uri@3.1.2': {}
 
   '@jridgewell/sourcemap-codec@1.6.0': {}
@@ -713,6 +775,10 @@ snapshots:
     dependencies:
       '@jridgewell/resolve-uri': 3.1.2
       '@jridgewell/sourcemap-codec': 1.6.0
+
+  '@noble/ciphers@2.1.1': {}
+
+  '@noble/hashes@2.4.0': {}
 
   '@oxc-project/types@0.156.0': {}
 
@@ -766,6 +832,20 @@ snapshots:
     optional: true
 
   '@rolldown/pluginutils@1.0.1': {}
+
+  '@suite/sync@https://codeload.github.com/mr-rogers-neighborhood/suite-sync/tar.gz/d14340eaa12924d2471ab5804a02f8db75ef69af#path:/packages/protocol(@noble/ciphers@2.1.1)':
+    dependencies:
+      '@noble/hashes': 2.4.0
+      ts-mls: 1.6.4(@noble/ciphers@2.1.1)
+      zod: 4.6.7
+    transitivePeerDependencies:
+      - '@hpke/chacha20poly1305'
+      - '@hpke/dhkem-x448'
+      - '@hpke/hybridkem-x-wing'
+      - '@hpke/ml-kem'
+      - '@noble/ciphers'
+      - '@noble/curves'
+      - '@noble/post-quantum'
 
   '@types/chai@5.2.3':
     dependencies:
@@ -861,6 +941,8 @@ snapshots:
       lightningcss-win32-arm64-msvc: 1.33.0
       lightningcss-win32-x64-msvc: 1.33.0
 
+  loro-crdt@1.17.1: {}
+
   magic-string@1.4.5:
     dependencies:
       '@jridgewell/sourcemap-codec': 1.6.0
@@ -919,6 +1001,11 @@ snapshots:
       fdir: 6.5.0(picomatch@4.0.7)
       picomatch: 4.0.7
 
+  ts-mls@1.6.4(@noble/ciphers@2.1.1):
+    dependencies:
+      '@hpke/core': 1.9.0
+      '@noble/ciphers': 2.1.1
+
   typescript@5.9.3: {}
 
   undici-types@7.24.6: {}
@@ -956,3 +1043,5 @@ snapshots:
       - msw
 
   why-is-node-running@3.2.1: {}
+
+  zod@4.6.7: {}

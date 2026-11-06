@@ -13,8 +13,19 @@ import { launchStaged, tempWorkspace } from "../fixtures/suite";
  * does not have leaves the app on its normal first screen rather than failing.
  */
 
-/** What Canvas reports about the document it has open, if any. */
+/**
+ * What Canvas reports about the document it has open, if any.
+ *
+ * A link that resolves makes the app navigate from its launcher route to the workspace,
+ * and an evaluate that lands mid-navigation has no context to run in. Waiting for the
+ * bridge first makes the read land after the page has settled wherever it was going.
+ */
 async function canvasDocumentPath(page: Page): Promise<string | null> {
+  await page
+    .waitForFunction(() => (globalThis as { suiteDesktop?: unknown }).suiteDesktop !== undefined, {
+      timeout: 30_000,
+    })
+    .catch(() => {});
   return page.evaluate(async () => {
     const bridge = (
       globalThis as { suiteDesktop?: { documentInfo(): Promise<{ path: string } | null> } }

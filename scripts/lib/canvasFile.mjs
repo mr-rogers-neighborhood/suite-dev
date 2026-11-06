@@ -25,6 +25,17 @@ export async function canvasSchemaVersion() {
 }
 
 /**
+ * An empty document, as the bytes Canvas would write.
+ *
+ * A real snapshot rather than zero bytes: the app imports what it is given, and an empty
+ * envelope is not a document any of the app's own code paths produce.
+ */
+export async function emptySnapshot() {
+  const { LoroDoc } = await import("loro-crdt");
+  return new LoroDoc().export({ mode: "snapshot" });
+}
+
+/**
  * A `.canvas` envelope around an existing Loro snapshot.
  *
  * The harness does not need the graph schema to write a file the app can open:

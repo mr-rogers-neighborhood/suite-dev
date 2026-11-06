@@ -1,29 +1,20 @@
-import { execFile } from "node:child_process";
 import { existsSync } from "node:fs";
-import { mkdtemp, readFile } from "node:fs/promises";
+import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { promisify } from "node:util";
 import { type ElectronApplication, _electron as electron, type Page } from "@playwright/test";
-import { canvasSchemaVersion, writeCanvasFile } from "../../scripts/lib/canvasFile.mjs";
+import {
+  canvasSchemaVersion,
+  emptySnapshot,
+  writeCanvasFile,
+} from "../../scripts/lib/canvasFile.mjs";
 import { hexId } from "../../scripts/lib/ids.mjs";
 import { executableOf } from "../../scripts/lib/installs.mjs";
-import { sibling } from "../../scripts/lib/paths.mjs";
-import { findFreePort, waitForHttp } from "../../scripts/lib/ports.mjs";
-import { startService } from "../../scripts/lib/proc.mjs";
 import { appById } from "../../scripts/lib/repos.mjs";
-
-const run = promisify(execFile);
-
-export const SYNC_CLI = join(sibling("suite-sync"), "apps/server/dist/cli.js");
 
 export interface TempWorkspace {
   readonly root: string;
   readonly workspaceId: string;
-  readonly ownerId: string;
-  readonly editorId: string;
-  readonly serverWorkspace: string;
-  readonly snapshot: Uint8Array;
   readonly files: Record<"owner" | "editor", string>;
   dispose(): Promise<void>;
 }
@@ -32,32 +23,20 @@ export interface TempWorkspace {
  * A workspace created for one test.
  *
  * The e2e suite does not reuse `.dev`: a card from the last run would make a
- * "did it sync?" assertion pass before the transport ran. A temp directory also
- * gives each test its own writer locks and its own userData.
+ * "did it open?" assertion pass before anything ran. A temp directory also gives
+ * each test its own writer locks and its own userData.
+ *
+ * There is no server half any more. The hub hosts a workspace when a device joins it,
+ * and a device needs a key this harness has no business inventing, so a test that wants
+ * a relay starts the hub and joins one.
  */
 export async function tempWorkspace(): Promise<TempWorkspace> {
   const root = await mkdtemp(join(tmpdir(), "suite-e2e-"));
   const workspaceId = hexId();
-  const ownerId = hexId();
-  const editorId = hexId();
-  const serverWorkspace = join(root, "workspace");
-
-  await run(process.execPath, [
-    SYNC_CLI,
-    "workspace",
-    "init",
-    serverWorkspace,
-    "--workspace",
-    workspaceId,
-    "--owner",
-    ownerId,
-    "--editor",
-    editorId,
-  ]);
-
-  const snapshot = new Uint8Array(await readFile(join(serverWorkspace, "snapshot.loro")));
   const schemaVersion = await canvasSchemaVersion();
+  const snapshot = await emptySnapshot();
   const files = {} as Record<"owner" | "editor", string>;
+
   for (const profile of ["owner", "editor"] as const) {
     files[profile] = await writeCanvasFile({
       path: join(root, profile, "Canvas", "Demo.canvas"),
@@ -70,56 +49,11 @@ export async function tempWorkspace(): Promise<TempWorkspace> {
   return {
     root,
     workspaceId,
-    ownerId,
-    editorId,
-    serverWorkspace,
-    snapshot,
     files,
     dispose: async () => {
       const { rm } = await import("node:fs/promises");
       await rm(root, { recursive: true, force: true });
     },
-  };
-}
-
-export interface RunningServer {
-  readonly port: number;
-  readonly socketUrl: string;
-  readonly healthUrl: string;
-  readonly handle: { stop(): void };
-  stop(): void;
-}
-
-export async function startServer(workspace: TempWorkspace): Promise<RunningServer> {
-  const port = await findFreePort(8790);
-  const handle = startService({
-    name: `sync-${port}`,
-    command: process.execPath,
-    args: [
-      SYNC_CLI,
-      "serve",
-      "--host",
-      "127.0.0.1",
-      "--port",
-      String(port),
-      "--workspace",
-      workspace.serverWorkspace,
-    ],
-    cwd: sibling("suite-sync"),
-  });
-
-  const healthUrl = `http://127.0.0.1:${port}/health`;
-  const ready = await waitForHttp(healthUrl, 15_000);
-  if (!ready) {
-    handle.stop();
-    throw new Error(`suite-sync did not answer ${healthUrl}`);
-  }
-  return {
-    port,
-    socketUrl: `ws://127.0.0.1:${port}/sync`,
-    healthUrl,
-    handle,
-    stop: () => handle.stop(),
   };
 }
 
