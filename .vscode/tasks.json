@@ -1,0 +1,65 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "suite: preflight",
+      "type": "shell",
+      "command": "pnpm preflight",
+      "options": { "cwd": "${workspaceFolder}" },
+      "problemMatcher": []
+    },
+    {
+      "label": "suite: stage real binaries",
+      "type": "shell",
+      "command": "pnpm apps:stage",
+      "options": { "cwd": "${workspaceFolder}" },
+      "problemMatcher": []
+    },
+    {
+      "label": "suite: seed workspace",
+      "type": "shell",
+      "command": "pnpm seed",
+      "options": { "cwd": "${workspaceFolder}" },
+      "problemMatcher": []
+    },
+    {
+      "label": "suite: dev loop",
+      "type": "shell",
+      "command": "pnpm dev",
+      "options": { "cwd": "${workspaceFolder}" },
+      "isBackground": true,
+      "problemMatcher": []
+    },
+    {
+      "label": "suite: dev loop (staged)",
+      "type": "shell",
+      "command": "pnpm dev:staged",
+      "options": { "cwd": "${workspaceFolder}" },
+      "isBackground": true,
+      "problemMatcher": []
+    },
+    {
+      "label": "suite: two-member demo",
+      "type": "shell",
+      "command": "pnpm demo:sync",
+      "options": { "cwd": "${workspaceFolder}" },
+      "isBackground": true,
+      "problemMatcher": []
+    },
+    {
+      "label": "suite: e2e",
+      "type": "shell",
+      "command": "pnpm e2e",
+      "options": { "cwd": "${workspaceFolder}" },
+      "group": "test",
+      "problemMatcher": []
+    },
+    {
+      "label": "suite: stop",
+      "type": "shell",
+      "command": "pnpm stop",
+      "options": { "cwd": "${workspaceFolder}" },
+      "problemMatcher": []
+    }
+  ]
+}

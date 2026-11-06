@@ -1,0 +1,42 @@
+{
+  "name": "suite-dev",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@12.13.0",
+  "engines": {
+    "node": ">=22"
+  },
+  "description": "The developer workspace for Suite: stage the real app binaries, run the hub and the sync server together, seed a workspace, and run the cross-app e2e suite.",
+  "scripts": {
+    "apps:clean": "node scripts/clean.mjs",
+    "apps:stage": "node scripts/stage.mjs",
+    "check": "biome check . && vitest run",
+    "demo:sync": "node scripts/demo-sync.mjs",
+    "dev": "node scripts/up.mjs --mode dev",
+    "dev:staged": "node scripts/up.mjs --mode staged",
+    "e2e": "playwright test",
+    "e2e:headed": "playwright test --headed",
+    "format": "biome format --write .",
+    "link:check": "node scripts/link.mjs check",
+    "link:local": "node scripts/link.mjs link",
+    "lint": "biome check .",
+    "preflight": "node scripts/doctor.mjs",
+    "seed": "node scripts/seed.mjs",
+    "stop": "node scripts/stop.mjs",
+    "test": "vitest run",
+    "unlink:local": "node scripts/link.mjs unlink"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.6.5",
+    "@playwright/test": "^1.64.1",
+    "@types/node": "^24.10.0",
+    "typescript": "~5.9.3",
+    "vitest": "^5.0.1"
+  },
+  "author": {
+    "name": "Suite contributors",
+    "email": "maintainers@suite.run"
+  },
+  "license": "MIT"
+}

@@ -1,0 +1,5 @@
+packages:
+  - "."
+
+# This repository is the orchestrator, not a package host. The product packages
+# live in the sibling repositories and are linked on demand by `pnpm link:local`.

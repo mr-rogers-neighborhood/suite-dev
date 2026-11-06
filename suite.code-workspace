@@ -1,0 +1,30 @@
+{
+  "folders": [
+    { "name": "suite-dev", "path": "." },
+    { "name": "suite-start", "path": "../suite-start" },
+    { "name": "suite-sync", "path": "../suite-sync" },
+    { "name": "suite-canvas", "path": "../suite-canvas" },
+    { "name": "suite-planner", "path": "../suite-planner" },
+    { "name": "suite-budget", "path": "../suite-budget" }
+  ],
+  "settings": {
+    "files.exclude": {
+      "**/.dev": true,
+      "**/node_modules": true,
+      "**/dist": true,
+      "**/release": true,
+      "**/test-results": true,
+      "**/storybook-static": true
+    },
+    "search.exclude": {
+      "**/.dev": true,
+      "**/node_modules": true,
+      "**/dist": true,
+      "**/release": true,
+      "**/test-results": true,
+      "**/pnpm-lock.yaml": true
+    },
+    "terminal.integrated.cwd": "${workspaceFolder:suite-dev}",
+    "typescript.tsdk": "suite-canvas/node_modules/typescript/lib"
+  }
+}

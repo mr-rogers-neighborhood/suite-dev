@@ -1,0 +1,68 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Start (staged)",
+      "type": "node",
+      "request": "launch",
+      "runtimeExecutable": "${workspaceFolder}/.dev/apps/start/suite-start",
+      "runtimeArgs": ["--inspect=9229"],
+      "cwd": "${workspaceFolder}/../suite-start/apps/start",
+      "env": {
+        "SUITE_START_USER_DATA": "${workspaceFolder}/.dev/data/start-default",
+        "SUITE_START_DATA": "${workspaceFolder}/.dev/start-data/default",
+        "SUITE_START_DOCUMENTS": "${workspaceFolder}/.dev/documents/default",
+        "SUITE_SYNC_URL": "ws://127.0.0.1:8787/sync",
+        "SUITE_SYNC_MEMBER": "${env:SUITE_SYNC_MEMBER}",
+        "SUITE_SYNC_WORKSPACE": "${env:SUITE_SYNC_WORKSPACE}",
+        "ELECTRON_DISABLE_SECURITY_WARNINGS": "1"
+      },
+      "console": "integratedTerminal",
+      "skipFiles": ["<node_internals>/**"]
+    },
+    {
+      "name": "Canvas (staged, owner)",
+      "type": "node",
+      "request": "launch",
+      "runtimeExecutable": "${workspaceFolder}/.dev/apps/canvas/suite-canvas",
+      "runtimeArgs": ["--inspect=9230"],
+      "cwd": "${workspaceFolder}/../suite-canvas/apps/desktop",
+      "env": {
+        "SUITE_CANVAS_USER_DATA": "${workspaceFolder}/.dev/data/canvas-owner",
+        "SUITE_CANVAS_LIBRARY": "${workspaceFolder}/.dev/documents/owner/Canvas",
+        "SUITE_SYNC_URL": "ws://127.0.0.1:8787/sync",
+        "SUITE_SYNC_MEMBER": "${env:SUITE_SYNC_OWNER}",
+        "SUITE_SYNC_WORKSPACE": "${env:SUITE_SYNC_WORKSPACE}",
+        "SUITE_SYNC_EPOCH": "1",
+        "ELECTRON_DISABLE_SECURITY_WARNINGS": "1"
+      },
+      "console": "integratedTerminal",
+      "skipFiles": ["<node_internals>/**"]
+    },
+    {
+      "name": "Sync server",
+      "type": "node",
+      "request": "launch",
+      "program": "${workspaceFolder}/../suite-sync/apps/server/dist/cli.js",
+      "args": [
+        "serve",
+        "--host",
+        "127.0.0.1",
+        "--port",
+        "8787",
+        "--workspace",
+        "${workspaceFolder}/.dev/workspace"
+      ],
+      "cwd": "${workspaceFolder}/../suite-sync",
+      "console": "integratedTerminal",
+      "skipFiles": ["<node_internals>/**"]
+    }
+  ],
+  "compounds": [
+    {
+      "name": "Sync demo",
+      "configurations": ["Sync server", "Canvas (staged, owner)"],
+      "stopAll": true
+    }
+  ]
+}
