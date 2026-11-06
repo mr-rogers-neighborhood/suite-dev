@@ -18,47 +18,20 @@ import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
 import { sibling } from "./lib/paths.mjs";
 
-/** Each repository's gate, in the order this runner should try it. */
+/**
+ * Each repository's gate, in the order this runner should try it.
+ *
+ * One command per repository, and it is the same command the Woodpecker pipeline runs, so
+ * there is exactly one definition of "this repository is healthy" rather than a list here
+ * that drifts from a list there.
+ */
 const PIPELINE = [
-  { repo: "suite-sync", steps: [["Lint, build, typecheck, tests", ["check"]]] },
-  { repo: "suite-start", steps: [["Lint, build, typecheck, tests", ["check"]]] },
-  {
-    repo: "suite-canvas",
-    steps: [
-      ["Lint", ["lint"]],
-      ["Typecheck", ["typecheck"]],
-      ["Unit tests", ["test"]],
-      ["Story tests", ["test:stories"]],
-      ["Build", ["build"]],
-      ["Documentation", ["docs:check"]],
-      ["Doc symbols", ["docs:symbols"]],
-      ["Shape", ["shape"]],
-      ["No secrets", ["security:secrets"]],
-    ],
-  },
-  {
-    repo: "suite-planner",
-    steps: [
-      ["Lint", ["lint"]],
-      ["Typecheck", ["typecheck"]],
-      ["Unit tests", ["test"]],
-      ["Shape", ["shape"]],
-      ["No unused files", ["knip"]],
-      ["Build", ["build"]],
-    ],
-  },
-  {
-    repo: "suite-budget",
-    steps: [
-      ["Lint", ["lint"]],
-      ["Typecheck", ["typecheck"]],
-      ["Unit tests", ["test"]],
-      ["Shape", ["shape"]],
-      ["No unused files", ["knip"]],
-      ["Build", ["build"]],
-    ],
-  },
-  { repo: "suite-dev", steps: [["Format, lint, tests", ["check"]]] },
+  { repo: "suite-sync", steps: [["The gate", ["check:full"]]] },
+  { repo: "suite-start", steps: [["The gate", ["check:full"]]] },
+  { repo: "suite-canvas", steps: [["The gate", ["check:full"]]] },
+  { repo: "suite-planner", steps: [["The gate", ["check:full"]]] },
+  { repo: "suite-budget", steps: [["The gate", ["check:full"]]] },
+  { repo: "suite-dev", steps: [["The gate", ["check:full"]]] },
 ];
 
 const argv = process.argv.slice(2);

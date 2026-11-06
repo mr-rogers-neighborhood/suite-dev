@@ -12,6 +12,7 @@
     "apps:clean": "node scripts/clean.mjs",
     "apps:stage": "node scripts/stage.mjs",
     "check": "biome check . && vitest run",
+    "check:full": "pnpm check",
     "demo:sync": "node scripts/demo-sync.mjs",
     "dev": "node scripts/up.mjs --mode dev",
     "dev:staged": "node scripts/up.mjs --mode staged",

@@ -39,3 +39,66 @@ It needs the machine awake. A missed night is a missed night and nothing depends
 
 The workflow files are in the git history — every one was validated with `actionlint` and none of them
 was wrong. `git log --diff-filter=D -- .github/workflows` finds the commit that removed them.
+
+## The Woodpecker pipeline
+
+Every repository has a `.woodpecker.yaml`. It is one step, and it calls `pnpm check:full` — the same
+command `scripts/ci.mjs` runs, so there is one definition of "this repository is healthy" rather than a
+list here and a list there.
+
+`check` stays the fast gate a push runs. `check:full` is what a runner runs, because `check` uses
+`vitest run --changed` in the app repositories and that needs git history a container may not have.
+
+### Running it with no server
+
+```sh
+# Once: the CLI is a single binary, and it must match the server's major version.
+gh release download v3.20.1 --repo woodpecker-ci/woodpecker \
+  --pattern "woodpecker-cli_linux_amd64.tar.gz" --clobber
+tar xzf woodpecker-cli_linux_amd64.tar.gz
+install -m 0755 woodpecker-cli ~/.local/bin/
+
+# Then, from any repository:
+woodpecker-cli exec --pipeline-event push --commit-branch main \
+  --repo mr-rogers-neighborhood/suite-sync .woodpecker.yaml
+```
+
+The `when` filter is why the metadata flags are needed: without an event, every workflow is filtered out
+and the CLI reports "no workflows to execute".
+
+### Two things the first run teaches
+
+**`exec` copies the tree without a usable `.git`.** That is by design — it is for testing pipeline steps,
+not for being a runner. The committed-output check cannot compare against history there, so it says
+`check-dist: skipped — git cannot see a work tree here` rather than passing quietly. A Woodpecker
+_server_ clones with git, so the check does run there.
+
+**The container writes back as root, and it writes into `node_modules` too.** A run leaves build output
+_and_ installed packages owned by root — 5,490 files in `suite-sync` and 68,644 in `suite-planner` after
+one pass each. The next `pnpm install` then fails with `EACCES`, and the failure names a path inside
+`node_modules/.pnpm` rather than the container that caused it.
+
+Take ownership back rather than deleting anything:
+
+```sh
+docker run --rm -v "$PWD:/w" alpine chown -R "$(id -u):$(id -g)" /w
+```
+
+Check with `find . -user root -not -path "./node_modules/*"`. If that returns anything, a container wrote
+to this checkout, and the next confusing error is probably that.
+
+### When a server becomes worth it
+
+It buys two things the CLI cannot: a trigger that is not your laptop, and a history with notifications.
+Both need the forge to reach the server, so the setup is:
+
+1. `woodpecker-server` + `woodpecker-agent` (SQLite is fine at this size), on a machine that is on when
+   you push.
+2. **A Cloudflare tunnel** for the webhook endpoint — outbound-only, no port forwarding, revocable.
+3. A GitHub OAuth app, because the forge connection is how Woodpecker authenticates and reports status.
+4. **Approval required for pull requests from outside contributors.** The repositories are public, and a
+   fork PR otherwise runs that fork's code on your machine.
+5. **Never the signing key.** Not in a secret, not on the agent. Releases stay a deliberate manual act.
+
+None of that is done, deliberately: it is a server to patch, a database to back up, and a tunnel
+credential — for a benefit that a second contributor or a second machine would make real.
