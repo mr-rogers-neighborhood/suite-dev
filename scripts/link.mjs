@@ -17,17 +17,18 @@ const TARGETS = [
     repo: "suite-canvas",
     dirs: [
       "../suite-start/packages/contracts",
+      "../suite-start/packages/desktop",
       "../suite-start/packages/files",
       "../suite-sync/packages/protocol",
     ],
   },
   {
     repo: "suite-planner",
-    dirs: ["../suite-start/packages/contracts"],
+    dirs: ["../suite-start/packages/contracts", "../suite-start/packages/desktop"],
   },
   {
     repo: "suite-budget",
-    dirs: ["../suite-start/packages/contracts"],
+    dirs: ["../suite-start/packages/contracts", "../suite-start/packages/desktop"],
   },
 ];
 
@@ -35,6 +36,21 @@ const FILES = ["package.json", "pnpm-workspace.yaml"];
 
 const command = process.argv[2] ?? "check";
 const linkDirFor = (repo) => join(LINK_DIR, repo);
+
+/**
+ * Re-quote the overrides `pnpm link` appended.
+ *
+ * It writes `'@suite/contracts': link:…`; the consumer repos format YAML with
+ * double quotes, so a linked tree would fail its own `check` for a reason that
+ * has nothing to do with the code being worked on.
+ */
+async function normaliseWorkspaceQuotes(repoDir) {
+  const path = join(repoDir, "pnpm-workspace.yaml");
+  const text = await readOrNull(path);
+  if (text === null) return;
+  const quoted = text.replace(/^(\s*)'([^']+)':\s*(.*)$/gmu, '$1"$2": $3');
+  if (quoted !== text) await writeFile(path, quoted);
+}
 
 async function readOrNull(path) {
   try {
@@ -70,6 +86,10 @@ async function link() {
       args: ["install"],
       cwd: repoDir,
     });
+
+    // `pnpm link` writes its overrides single-quoted, which the repos' formatter
+    // rejects: a linked tree would fail `check` before any code was written.
+    await normaliseWorkspaceQuotes(repoDir);
 
     for (const file of FILES) {
       const source = join(repoDir, file);
