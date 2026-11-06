@@ -25,13 +25,15 @@
     "seed": "node scripts/seed.mjs",
     "stop": "node scripts/stop.mjs",
     "test": "vitest run",
-    "unlink:local": "node scripts/link.mjs unlink"
+    "unlink:local": "node scripts/link.mjs unlink",
+    "prepare": "husky"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.6.5",
     "@playwright/test": "^1.64.1",
     "@suite/sync": "github:mr-rogers-neighborhood/suite-sync#v0.6.1&path:/packages/protocol",
     "@types/node": "^24.10.0",
+    "husky": "^9.1.7",
     "loro-crdt": "^1.17.1",
     "typescript": "~5.9.3",
     "vitest": "^5.0.1"
