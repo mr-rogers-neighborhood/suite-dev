@@ -43,6 +43,14 @@
       "**/pnpm-lock.yaml": true
     },
     "terminal.integrated.cwd": "${workspaceFolder:suite-dev}",
-    "typescript.tsdk": "${workspaceFolder:suite-canvas}/node_modules/typescript/lib"
+    "typescript.tsdk": "${workspaceFolder:suite-canvas}/node_modules/typescript/lib",
+    "explorer.fileNesting.enabled": true,
+    "explorer.fileNesting.expand": false,
+    "explorer.fileNesting.patterns": {
+      "*.ts": "${capture}.test.ts, ${capture}.spec.ts, ${capture}.stories.tsx, ${capture}.test.tsx",
+      "*.tsx": "${capture}.test.tsx, ${capture}.stories.tsx, ${capture}.test.ts",
+      "package.json": "tsconfig.json, tsconfig.*.json, biome.json, biome.jsonc, knip.json, knip.jsonc, .npmrc, vitest.config.ts, electron-builder.yml, electron.vite.config.ts, playwright.config.ts",
+      "README.md": "SECURITY.md, CONTRIBUTING.md, CODE_OF_CONDUCT.md, LICENSE, AGENTS.md, CHANGELOG.md"
+    }
   }
 }
