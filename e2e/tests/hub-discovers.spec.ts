@@ -29,6 +29,14 @@ test("the staged hub lists the staged apps and their files", async () => {
     await expect(launched.page.locator('li.card[data-app-id="planner"]')).toBeVisible();
     await expect(launched.page.locator('li.card[data-app-id="budget"]')).toBeVisible();
     await expect(launched.page.locator("#all-files")).toContainText("Demo.canvas");
+
+    // The row carries the link that opens the same file from outside the hub.
+    await launched.page.getByRole("tab", { name: "Files" }).click();
+    await expect(
+      launched.page.locator(
+        "#all-files li.row button.row-copy[title='suite://canvas/workspace/Demo.canvas']",
+      ),
+    ).toBeVisible();
   } finally {
     await launched.close();
     await rm(root, { recursive: true, force: true });
