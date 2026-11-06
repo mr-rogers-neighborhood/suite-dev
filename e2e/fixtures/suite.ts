@@ -161,6 +161,10 @@ export async function launchCanvas(options: {
       ...process.env,
       SUITE_CANVAS_USER_DATA: join(workspace.root, "data", profile),
       SUITE_CANVAS_LIBRARY: join(workspace.root, profile, "Canvas"),
+      // A test never reads or writes the real per-user data directory: the recents
+      // store lives there, and every app resolves it through `suitePaths`, which
+      // honours this.
+      XDG_DATA_HOME: join(workspace.root, "data", "xdg"),
       SUITE_SYNC_URL: `ws://127.0.0.1:${port}/sync`,
       SUITE_SYNC_MEMBER: memberId,
       SUITE_SYNC_WORKSPACE: workspace.workspaceId,
@@ -208,6 +212,10 @@ export async function launchStaged(
     env: {
       ...process.env,
       ELECTRON_DISABLE_SECURITY_WARNINGS: "1",
+      // A test never reads or writes the real per-user data directory: every app
+      // resolves it through `suitePaths`, which honours this. Without it a run
+      // leaves its temp paths in the developer's own profile.
+      XDG_DATA_HOME: join(options.root, "xdg-data"),
       ...options.env,
     },
     timeout: 60_000,
