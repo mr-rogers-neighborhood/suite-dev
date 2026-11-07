@@ -228,6 +228,56 @@ async function releaseVersion(app) {
   return packageVersion;
 }
 
+/**
+ * What is wrong with a built package's file modes, or null when nothing is.
+ *
+ * 0.3.1 installed and then could not start: `cp -a` had reproduced the AppImage's 0700
+ * directories onto `/opt/suite-start`, so the user could not traverse the tree and the
+ * launcher reported its own binary as missing. Reading `bsdtar -tvf` is enough to catch
+ * it before upload — the archive records the mode pacman will apply.
+ *
+ * `listing` is one `bsdtar -tvf` line per entry.
+ */
+export function packageModeProblems(listing) {
+  const problems = [];
+  let hasExecutable = false;
+
+  for (const line of listing.split(/\r?\n/u)) {
+    if (line.trim().length === 0) continue;
+    const match = TAR_LINE.exec(line.trim());
+    if (match === null) continue;
+    const [, kind, mode, path] = match;
+    if (kind === undefined || mode === undefined || path === undefined) continue;
+
+    if (kind === "d" && path.startsWith("opt/")) {
+      // Readable and executable by everyone: a directory a person cannot traverse is a
+      // directory whose contents do not exist as far as they are concerned.
+      // Mode characters are owner/write/execute, then group, then other: the last
+      // three are what everyone else gets.
+      if (mode[6] !== "r" || mode[8] !== "x") {
+        problems.push(`${path} is mode ${mode}, so a user cannot read or enter it`);
+      }
+    }
+
+    if (path === "opt/suite-start/suite-start") {
+      if (kind !== "-") problems.push("the hub's binary is not a regular file");
+      else if (mode[2] !== "x" && mode[2] !== "s") {
+        problems.push("the hub's binary is not executable");
+      } else hasExecutable = true;
+    }
+  }
+
+  if (!hasExecutable) problems.push("the package does not contain opt/suite-start/suite-start");
+  return problems;
+}
+
+/**
+ * One `bsdtar -tvf` line: kind, nine mode characters, then size, owner, group, day,
+ * time and the path. Two spaces can pad the day, which `\s+` absorbs.
+ */
+const TAR_LINE =
+  /^([-dlpscbD])([rwxsStT-]{9})\s+\d+\s+\S+\s+\S+\s+\d+\s+\S+\s+\d+\s+[\d:]+\s+(.+)$/u;
+
 /** The SHA-256 makepkg verifies a source file against. */
 async function sha256OfFile(path) {
   const hash = createHash("sha256");
@@ -272,6 +322,14 @@ async function packageFor(app, { version, artifactPath }) {
 
   const built = (await readdir(work)).find((name) => name.endsWith(".pkg.tar.zst"));
   if (built === undefined) throw new Error("makepkg produced no .pkg.tar.zst");
+
+  // A package that cannot be started is worse than no package: it installs cleanly and
+  // fails at launch. So the archive is read back before it is ever uploaded.
+  const { stdout: listing } = await run("bsdtar", ["-tvf", built], { cwd: work });
+  const problems = packageModeProblems(listing);
+  if (problems.length > 0) {
+    throw new Error(`${built} would not run:\n  ${problems.join("\n  ")}`);
+  }
   const destination = join(releaseDir(app), built);
   await copyFile(join(work, built), destination);
   await rm(work, { recursive: true, force: true });

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   artifactNameFromFeed,
+  packageModeProblems,
   pkgbuildFor,
   tagProblem,
   versionDisagreement,
@@ -116,5 +117,59 @@ describe("pkgbuildFor", () => {
     expect(() => pkgbuildFor({ text: "pkgname=x\n", version: "1.0.0", sha256: "a" })).toThrow(
       /pkgver or sha256sums/u,
     );
+  });
+});
+
+describe("packageModeProblems", () => {
+  // One `bsdtar -tvf` line: kind, nine mode characters, size, owner, group, then the
+  // date (whose day is space-padded) and the path.
+  const entry = (mode, path, kind = "d") =>
+    `${kind}${mode}  0 root   root  1234 Nov  7 12:04 ${path}`;
+
+  const good = [
+    entry("rwxr-xr-x", "opt/"),
+    entry("rwxr-xr-x", "opt/suite-start/"),
+    entry("rwxr-xr-x", "opt/suite-start/suite-start", "-"),
+    entry("rwsr-xr-x", "opt/suite-start/chrome-sandbox", "-"),
+    entry("rwxr-xr-x", "usr/"),
+  ].join("\n");
+
+  it("accepts a tree pacman will install readably", () => {
+    expect(packageModeProblems(good)).toEqual([]);
+  });
+
+  it("refuses the 0700 root that made 0.3.1 unstartable", () => {
+    // This is the real failure: `cp -a` reproduced the image's 0700 onto the install
+    // root, so the launcher could not be found by a person who is not root.
+    const broken = good.replace(
+      entry("rwxr-xr-x", "opt/suite-start/"),
+      entry("rwx------", "opt/suite-start/"),
+    );
+    const problems = packageModeProblems(broken);
+    expect(problems).toHaveLength(1);
+    expect(problems[0]).toContain("opt/suite-start/");
+    expect(problems[0]).toContain("cannot read or enter");
+  });
+
+  it("refuses an icon directory nobody can enter", () => {
+    const broken = `${good}\n${entry("rwx------", "usr/share/icons/hicolor/")}`;
+    expect(packageModeProblems(broken).length).toBe(0);
+    // Only opt/ is asserted on purpose: the system's own icon trees are the distro's
+    // business, and a package must not fail for a directory it does not own.
+    const optBroken = `${good}\n${entry("rwx------", "opt/suite-start/resources/")}`;
+    expect(packageModeProblems(optBroken)[0]).toContain("resources");
+  });
+
+  it("refuses a package whose binary is missing or not executable", () => {
+    const missing = [entry("rwxr-xr-x", "opt/"), entry("rwxr-xr-x", "opt/suite-start/")].join("\n");
+    expect(packageModeProblems(missing)).toContain(
+      "the package does not contain opt/suite-start/suite-start",
+    );
+
+    const notExecutable = good.replace(
+      entry("rwxr-xr-x", "opt/suite-start/suite-start", "-"),
+      entry("rw-r--r--", "opt/suite-start/suite-start", "-"),
+    );
+    expect(packageModeProblems(notExecutable)[0]).toContain("not executable");
   });
 });
