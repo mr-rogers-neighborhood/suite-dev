@@ -40,6 +40,19 @@ It earns its keep: this suite is what caught `ts-mls` importing `@noble/ciphers`
 a crash that no unit test could see, because the workspace hoisted the package and only a packaged app
 could miss it.
 
+## Releasing is not the pipeline's job
+
+The gate answers "is this repository healthy". It does not answer "is this release good", and the
+signing key is not handed to a runner for it to try. A release is one command on the machine that holds
+the key:
+
+```sh
+node scripts/release.mjs planner --publish
+```
+
+It runs the gate itself before it builds, so a release cannot skip what a push must pass. See
+[cutting a release](release.md).
+
 ## If a hosted runner ever appears
 
 The workflow files are in the git history — every one was validated with `actionlint` and none of them

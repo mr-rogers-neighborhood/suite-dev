@@ -1,0 +1,65 @@
+import { describe, expect, it } from "vitest";
+import { artifactNameFromFeed, versionDisagreement, versionFromPackage } from "./release.mjs";
+
+const realFeed = [
+  "version: 0.1.0",
+  "files:",
+  "  - url: suite-canvas-0.1.0-x86_64.AppImage",
+  "    sha512: dmuphTeY3G3RNc7+S0bRU3Me//dFxNoBSKMsdOGlNIBxe/tz0f1IoBv3mYOAP//cZ3qEVWCO0PNK0aLSl+J5bQ==",
+  "    size: 153291139",
+  "    blockMapSize: 162199",
+  "path: suite-canvas-0.1.0-x86_64.AppImage",
+  "sha512: dmuphTeY3G3RNc7+S0bRU3Me//dFxNoBSKMsdOGlNIBxe/tz0f1IoBv3mYOAP//cZ3qEVWCO0PNK0aLSl+J5bQ==",
+  "releaseDate: '2026-11-06T19:29:45.218Z'",
+  "",
+].join("\n");
+
+describe("versionFromPackage", () => {
+  it("reads the version the release will be", () => {
+    expect(versionFromPackage('{"name":"@suite/planner","version":"0.2.0"}')).toBe("0.2.0");
+  });
+
+  it("is null when there is no version to read", () => {
+    expect(versionFromPackage('{"name":"@suite/planner"}')).toBeNull();
+    expect(versionFromPackage("not json")).toBeNull();
+  });
+});
+
+describe("versionDisagreement", () => {
+  it("says nothing when the version, the manifest and the tag will agree", () => {
+    expect(versionDisagreement({ packageVersion: "0.1.0", manifestVersion: "0.1.0" })).toBeNull();
+  });
+
+  it("excuses the hub, which ships no manifest", () => {
+    expect(versionDisagreement({ packageVersion: "0.3.0", manifestVersion: undefined })).toBeNull();
+  });
+
+  it("refuses a release whose manifest describes a different version", () => {
+    const why = versionDisagreement({ packageVersion: "0.2.0", manifestVersion: "0.1.0" });
+    expect(why).toContain("0.2.0");
+    expect(why).toContain("0.1.0");
+    expect(why).toContain("one commit");
+  });
+
+  it("refuses a package with no version at all", () => {
+    expect(versionDisagreement({ packageVersion: null, manifestVersion: undefined })).toBe(
+      "package.json names no version",
+    );
+  });
+
+  it("refuses a manifest with no version rather than assuming", () => {
+    expect(versionDisagreement({ packageVersion: "0.1.0", manifestVersion: null })).toBe(
+      "suite.app.json names no version",
+    );
+  });
+});
+
+describe("artifactNameFromFeed", () => {
+  it("names the file electron-builder wrote", () => {
+    expect(artifactNameFromFeed(realFeed)).toBe("suite-canvas-0.1.0-x86_64.AppImage");
+  });
+
+  it("is null when the feed names no path", () => {
+    expect(artifactNameFromFeed("version: 0.1.0\n")).toBeNull();
+  });
+});
