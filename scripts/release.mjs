@@ -236,7 +236,18 @@ async function main() {
   await refuseDirty(repo);
 
   const version = await releaseVersion(app);
-  console.log(`\nreleasing ${app.name} ${version}`);
+  const tag = options.tag ?? `v${version}`;
+  // Both refusals are cheap and both are about the upload, so they run before a build
+  // that takes minutes: a release that cannot be published should not be packaged.
+  if (await tagExists(repo, tag)) throw new Error(tagProblem({ tag, version }));
+  if (options.publish && !(await headIsPushed(repo))) {
+    throw new Error(
+      `${repo} is ahead of its upstream, so a release from here would name a commit nobody ` +
+        "can fetch. Push the branch first, then publish.",
+    );
+  }
+
+  console.log(`\nreleasing ${app.name} ${version} as ${tag}`);
 
   // The gate is the same command the pipeline runs, so "the gate passed" is something
   // this saw rather than something a person remembered.
@@ -298,8 +309,6 @@ async function main() {
     console.log("  latest-linux.yml.sig");
   }
 
-  const tag = options.tag ?? `v${version}`;
-  if (await tagExists(repo, tag)) throw new Error(tagProblem({ tag, version }));
   if (!options.publish) {
     const why = options.dryRun ? " (dry run)" : "";
     console.log(`\nnot published${why}. To publish: node scripts/release.mjs ${app.id} --publish`);
@@ -308,13 +317,6 @@ async function main() {
     console.log(`        ${feedPath}`);
     console.log(`        ${signaturePath}`);
     return;
-  }
-
-  if (!(await headIsPushed(repo))) {
-    throw new Error(
-      `${repo} is ahead of its upstream, so a release from here would name a commit nobody ` +
-        "can fetch. Push the branch first, then publish.",
-    );
   }
 
   console.log(`\n=== publish ${tag} ===`);

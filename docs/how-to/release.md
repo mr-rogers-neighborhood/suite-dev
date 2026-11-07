@@ -14,6 +14,7 @@ be proven without a network.
 ```sh
 node scripts/release.mjs planner --feed-dir /tmp/feed          # a local feed, nothing published
 node scripts/release.mjs planner --publish --notes-file notes.md
+node scripts/release.mjs start --tag start-v0.3.0 --publish    # the hub, off the package tag line
 ```
 
 ## What it refuses
@@ -28,6 +29,16 @@ The version always comes from `package.json`, never from `git describe`. Suite C
 `v1.0.0`–`v1.1.0` tags from an older layout above its current `v0.1.0`, so tags cannot be trusted to
 name a version.
 
+## The tag
+
+The default is `v<version>`. That is right for Canvas, Planner and Budget, whose tags are their own
+releases. In `suite-start` it is wrong: `v0.1.0`–`v0.7.0` are the shared-package line the apps pin, and
+the hub app is `0.3.0`, so the default collides with a tag about something else. The hub releases under
+`start-v<version>` — `--tag start-v0.3.0`.
+
+`releases/latest/download` resolves to the newest release whatever it is called, so the feed URLs do
+not care.
+
 ## What it produces
 
 In the app's `release/` directory:
@@ -35,6 +46,11 @@ In the app's `release/` directory:
 - `Suite <App>-<version>.AppImage` — the artifact;
 - `latest-linux.yml` — the feed: version, file name, sha512, size;
 - `latest-linux.yml.sig` — the publisher's signature over those exact bytes.
+
+The artifact name is set in each app's `electron-builder.yml` and has **no spaces**: GitHub rewrites a
+space in an asset name to a dot, so a file built as `Suite Start-0.3.0.AppImage` is served as
+`Suite.Start-0.3.0.AppImage` while the signed feed still names the file it built — a 404 for every
+install. `suite-canvas-${version}-${arch}.${ext}` is the shape to follow.
 
 All three are uploaded together. A feed without its signature is a feed every install refuses, and an
 artifact without its feed is a version nothing can find.
