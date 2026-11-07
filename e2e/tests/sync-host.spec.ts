@@ -121,6 +121,7 @@ test("a device outside the hub converges through the hub's own relay", async () 
       workspaceId,
       deviceId: owner.deviceId,
       publicKey: owner.publicKey,
+      name: "owner-laptop",
     });
     await alice.until((m) => m.type === "joined");
 
@@ -143,6 +144,7 @@ test("a device outside the hub converges through the hub's own relay", async () 
       workspaceId,
       deviceId: second.deviceId,
       publicKey: second.publicKey,
+      name: "owner-desktop",
     });
     await bob.until((m) => m.type === "joined");
 
@@ -183,10 +185,11 @@ test("a device outside the hub converges through the hub's own relay", async () 
     const opened = await open(joinedGroup, Buffer.from(delivered.frame.payload, "base64"));
     expect(new TextDecoder().decode(opened.plaintext ?? new Uint8Array())).toBe(plaintext);
 
-    // The hub drew what it holds: one workspace, one frame, two devices with roles.
+    // The hub drew what it holds: one workspace, one change through it, two devices with roles.
+    // It says "change" rather than "frame" — the pane speaks to a person, not to the protocol.
     await start.page.getByRole("tab", { name: "Sync" }).click();
     await expect(start.page.locator(".sync-workspaces > li")).toHaveCount(1, { timeout: 15_000 });
-    await expect(start.page.locator(".sync-workspaces")).toContainText("1 frame");
+    await expect(start.page.locator(".sync-workspaces")).toContainText("1 change passed through");
     await expect(start.page.locator(".sync-members > li")).toHaveCount(2);
 
     alice.close();
