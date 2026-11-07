@@ -15,7 +15,13 @@ import { appById } from "../../scripts/lib/repos.mjs";
 export interface TempWorkspace {
   readonly root: string;
   readonly workspaceId: string;
-  readonly files: Record<"owner" | "editor", string>;
+  /**
+   * One copy of the workspace file per window.
+   *
+   * `restore` is not a person: it is a fresh install holding the same file, which is what a
+   * machine rebuilt from a recovery file looks like.
+   */
+  readonly files: Record<"owner" | "editor" | "restore", string>;
   dispose(): Promise<void>;
 }
 
@@ -35,9 +41,9 @@ export async function tempWorkspace(): Promise<TempWorkspace> {
   const workspaceId = hexId();
   const schemaVersion = await canvasSchemaVersion();
   const snapshot = await emptySnapshot();
-  const files = {} as Record<"owner" | "editor", string>;
+  const files = {} as Record<"owner" | "editor" | "restore", string>;
 
-  for (const profile of ["owner", "editor"] as const) {
+  for (const profile of ["owner", "editor", "restore"] as const) {
     files[profile] = await writeCanvasFile({
       path: join(root, profile, "Canvas", "Demo.canvas"),
       workspaceId,
@@ -83,27 +89,25 @@ export interface LaunchedApp {
 
 export async function launchCanvas(options: {
   workspace: TempWorkspace;
-  profile: "owner" | "editor";
-  port: number;
-  memberId: string;
+  profile: "owner" | "editor" | "restore";
 }): Promise<LaunchedApp> {
-  const { workspace, profile, port, memberId } = options;
+  const { workspace, profile } = options;
   const app = await electron.launch({
     executablePath: canvasExecutable(),
     args: [workspace.files[profile]],
     env: {
       ...process.env,
-      SUITE_CANVAS_USER_DATA: join(workspace.root, "data", profile),
+      // Two directories, and both are needed. `USER_DATA` is Electron's own — the single
+      // instance lock lives there, so two copies of the shell need two of them or the second
+      // quits. `DATA` is the document and sync state, and two windows sharing *that* would be
+      // one device twice: the same identity, the same group, one owner marker between them.
+      SUITE_CANVAS_USER_DATA: join(workspace.root, "user-data", profile),
+      SUITE_CANVAS_DATA: join(workspace.root, "data", profile),
       SUITE_CANVAS_LIBRARY: join(workspace.root, profile, "Canvas"),
-      // A test never reads or writes the real per-user data directory: the recents
-      // store lives there, and every app resolves it through `suitePaths`, which
-      // honours this.
+      // Shared with the hub, so the address it reports is the one these windows read. A test
+      // never touches the real per-user data directory: every app resolves it through
+      // `suitePaths`, which honours this.
       XDG_DATA_HOME: join(workspace.root, "data", "xdg"),
-      SUITE_SYNC_URL: `ws://127.0.0.1:${port}/sync`,
-      SUITE_SYNC_MEMBER: memberId,
-      SUITE_SYNC_WORKSPACE: workspace.workspaceId,
-      SUITE_SYNC_EPOCH: "1",
-      SUITE_SYNC_DEVICE: memberId,
       ELECTRON_DISABLE_SECURITY_WARNINGS: "1",
     },
     timeout: 60_000,
