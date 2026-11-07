@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { artifactNameFromFeed, versionDisagreement, versionFromPackage } from "./release.mjs";
+import {
+  artifactNameFromFeed,
+  tagProblem,
+  versionDisagreement,
+  versionFromPackage,
+} from "./release.mjs";
 
 const realFeed = [
   "version: 0.1.0",
@@ -61,5 +66,20 @@ describe("artifactNameFromFeed", () => {
 
   it("is null when the feed names no path", () => {
     expect(artifactNameFromFeed("version: 0.1.0\n")).toBeNull();
+  });
+});
+
+describe("tagProblem", () => {
+  it("explains a tag that is already taken, and names the fix", () => {
+    // suite-start's tags are the shared-package line the apps pin; its app is 0.3.0,
+    // so `v0.3.0` is taken by something else entirely.
+    const why = tagProblem({ tag: "v0.3.0", version: "0.3.0" });
+    expect(why).toContain("already exists");
+    expect(why).toContain("one commit");
+    expect(why).toContain("--tag start-v0.3.0");
+  });
+
+  it("is a sentence for any taken tag, not only the default name", () => {
+    expect(tagProblem({ tag: "start-v0.3.0", version: "0.3.0" })).toContain("start-v0.3.0");
   });
 });

@@ -79,7 +79,8 @@ export function artifactNameFromFeed(text) {
 const USAGE = `usage: node scripts/release.mjs <app-id> [options]
 
   --feed-dir <path>   write the artifact, the feed and its signature into a folder
-  --publish           create the GitHub release for v<version>
+  --publish           create the GitHub release
+  --tag <name>        the tag to release under (default: v<version>)
   --notes-file <path> notes for that release (default: GitHub's generated notes)
   --dry-run           do everything except upload
 `;
@@ -97,6 +98,7 @@ function parseArgs(argv) {
     appId: null,
     feedDir: null,
     notesFile: null,
+    tag: null,
     publish: false,
     dryRun: false,
     help: false,
@@ -109,6 +111,9 @@ function parseArgs(argv) {
     else if (arg === "--dry-run") options.dryRun = true;
     else if (arg === "--feed-dir") {
       options.feedDir = takeValue(argv, index, "--feed-dir");
+      index += 1;
+    } else if (arg === "--tag") {
+      options.tag = takeValue(argv, index, "--tag");
       index += 1;
     } else if (arg === "--notes-file") {
       options.notesFile = takeValue(argv, index, "--notes-file");
@@ -130,6 +135,56 @@ async function refuseDirty(repo) {
     `the ${repo} tree has uncommitted changes, so this is not a release:\n${changed}\n` +
       "Commit or stash them first.",
   );
+}
+
+/**
+ * What to say when a tag is already taken, or null when it is free.
+ *
+ * Pure so the sentence, and the reason for it, can be a test. `suite-start`'s existing
+ * tags are the shared-package line (`v0.6.1`, `v0.7.0`) that the apps pin, and its app
+ * version is `0.3.0` — so the default name is taken by something else entirely.
+ */
+export function tagProblem({ tag, version }) {
+  if (tag === null || tag === undefined) return "no tag to release under";
+  return (
+    `the tag ${tag} already exists. A tag is a promise about one commit, so this will not ` +
+    `land on it. Pass --tag with a name of its own (for suite-start: --tag start-v${version}).`
+  );
+}
+
+/**
+ * Whether a tag is already taken.
+ *
+ * A tag is a promise about one commit, and a release landing on a tag that already
+ * points somewhere else would be a promise about the wrong one. In `suite-start` the
+ * existing tags are the shared-package line (`v0.6.1`, `v0.7.0`) that the apps pin, so
+ * the hub's own releases take `start-v0.3.0` and leave that line alone.
+ */
+async function tagExists(repo, tag) {
+  try {
+    await run("git", ["rev-parse", "--verify", "--quiet", `refs/tags/${tag}`], { cwd: repo });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Whether the commit being released is the one people can get.
+ *
+ * A release built from a local-only commit is a download that resolves to a tag nobody
+ * can fetch, so the branch has to be level with its upstream before the upload.
+ */
+async function headIsPushed(repo) {
+  try {
+    const [head, upstream] = await Promise.all([
+      run("git", ["rev-parse", "HEAD"], { cwd: repo }),
+      run("git", ["rev-parse", "@{u}"], { cwd: repo }),
+    ]);
+    return head.stdout.trim() === upstream.stdout.trim();
+  } catch {
+    return false;
+  }
 }
 
 /** The version the release will be, and the files that have to agree about it. */
@@ -243,7 +298,8 @@ async function main() {
     console.log("  latest-linux.yml.sig");
   }
 
-  const tag = `v${version}`;
+  const tag = options.tag ?? `v${version}`;
+  if (await tagExists(repo, tag)) throw new Error(tagProblem({ tag, version }));
   if (!options.publish) {
     const why = options.dryRun ? " (dry run)" : "";
     console.log(`\nnot published${why}. To publish: node scripts/release.mjs ${app.id} --publish`);
@@ -252,6 +308,13 @@ async function main() {
     console.log(`        ${feedPath}`);
     console.log(`        ${signaturePath}`);
     return;
+  }
+
+  if (!(await headIsPushed(repo))) {
+    throw new Error(
+      `${repo} is ahead of its upstream, so a release from here would name a commit nobody ` +
+        "can fetch. Push the branch first, then publish.",
+    );
   }
 
   console.log(`\n=== publish ${tag} ===`);
