@@ -1,7 +1,9 @@
 #!/usr/bin/env node
 import { execFile } from "node:child_process";
-import { existsSync } from "node:fs";
-import { copyFile, mkdir, readFile } from "node:fs/promises";
+import { createHash } from "node:crypto";
+import { createReadStream, existsSync } from "node:fs";
+import { copyFile, mkdir, mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
 import { promisify } from "node:util";
 import { ROOT } from "./lib/paths.mjs";
@@ -30,6 +32,28 @@ const run = promisify(execFile);
  * gate answers "is this repository healthy", not "is this release good". See ADR-0002
  * and `docs/how-to/release.md`.
  */
+
+/**
+ * A PKGBUILD with the version and checksum of the artifact just built.
+ *
+ * The committed PKGBUILD records the release it was written for; a release builds the
+ * package from *its own* bytes, so both numbers are rewritten here rather than trusted
+ * from the file. A stale checksum would fail makepkg's verification, which is the point:
+ * the package must describe the artifact this run produced, not the one it replaced.
+ */
+export function pkgbuildFor({ text, version, sha256 }) {
+  const patched = text
+    .replace(/^pkgver=.*$/mu, `pkgver=${version}`)
+    .replace(/^pkgrel=.*$/mu, "pkgrel=1")
+    .replace(/^sha256sums=\(.*$/mu, `sha256sums=('${sha256}')`);
+  const unchanged = ["pkgver", "sha256sums"].filter(
+    (field) => !new RegExp(`^${field}=`, "mu").test(patched),
+  );
+  if (unchanged.length > 0) {
+    throw new Error(`the PKGBUILD has no ${unchanged.join(" or ")} line to rewrite`);
+  }
+  return patched;
+}
 
 /** The version a `package.json` names, or null when it names none. */
 export function versionFromPackage(text) {
@@ -204,6 +228,56 @@ async function releaseVersion(app) {
   return packageVersion;
 }
 
+/** The SHA-256 makepkg verifies a source file against. */
+async function sha256OfFile(path) {
+  const hash = createHash("sha256");
+  for await (const chunk of createReadStream(path)) hash.update(chunk);
+  return hash.digest("hex");
+}
+
+/**
+ * Build the Arch package for the artifact this run produced, when the app has one.
+ *
+ * A second delivery form for the same bytes: the PKGBUILD wraps the AppImage rather than
+ * rebuilding the app, so the package and the signed feed cannot describe different
+ * releases. Absent `packaging/arch/PKGBUILD` is not a failure — only the hub has one, and
+ * makepkg is Arch-only, so a machine without it skips this with a note.
+ */
+async function packageFor(app, { version, artifactPath }) {
+  const pkgbuildPath = join(projectDir(app), "packaging", "arch", "PKGBUILD");
+  if (!existsSync(pkgbuildPath)) return null;
+  if (process.platform !== "linux" || !existsSync("/usr/bin/makepkg")) {
+    console.log("\nmakepkg is not here, so no Arch package was built");
+    return null;
+  }
+
+  const text = await readFile(pkgbuildPath, "utf8");
+  const pkgname = /^pkgname=(\S+)$/mu.exec(text)?.[1];
+  if (pkgname === undefined) throw new Error(`${pkgbuildPath} names no pkgname`);
+
+  const work = await mkdtemp(join(tmpdir(), "suite-pkg-"));
+  const patched = pkgbuildFor({ text, version, sha256: await sha256OfFile(artifactPath) });
+  await writeFile(join(work, "PKGBUILD"), patched);
+  // Under the name its own `source=` alias declares, so makepkg verifies the file this
+  // release just built instead of downloading a released copy of itself.
+  await copyFile(artifactPath, join(work, `${pkgname}-${version}.AppImage`));
+
+  console.log(`\n=== arch package (${pkgname}) ===`);
+  await runOnce({
+    name: "makepkg",
+    command: "/usr/bin/makepkg",
+    args: ["--nocheck", "--nodeps", "--force"],
+    cwd: work,
+  });
+
+  const built = (await readdir(work)).find((name) => name.endsWith(".pkg.tar.zst"));
+  if (built === undefined) throw new Error("makepkg produced no .pkg.tar.zst");
+  const destination = join(releaseDir(app), built);
+  await copyFile(join(work, built), destination);
+  await rm(work, { recursive: true, force: true });
+  return destination;
+}
+
 async function main() {
   let options;
   try {
@@ -298,6 +372,8 @@ async function main() {
   const signaturePath = `${feedPath}.sig`;
   if (!existsSync(signaturePath)) throw new Error(`${signaturePath} was not written`);
 
+  const packagePath = await packageFor(app, { version, artifactPath });
+
   if (options.feedDir !== null) {
     await mkdir(options.feedDir, { recursive: true });
     for (const file of [artifactPath, feedPath, signaturePath]) {
@@ -313,9 +389,9 @@ async function main() {
     const why = options.dryRun ? " (dry run)" : "";
     console.log(`\nnot published${why}. To publish: node scripts/release.mjs ${app.id} --publish`);
     console.log(`  tag   ${tag}`);
-    console.log(`  files ${artifactPath}`);
-    console.log(`        ${feedPath}`);
-    console.log(`        ${signaturePath}`);
+    for (const file of [artifactPath, feedPath, signaturePath, packagePath]) {
+      if (file !== null) console.log(`  file  ${file}`);
+    }
     return;
   }
 
@@ -332,6 +408,7 @@ async function main() {
       artifactPath,
       feedPath,
       signaturePath,
+      ...(packagePath === null ? [] : [packagePath]),
       "--title",
       `${app.name} ${version}`,
       ...notes,
