@@ -168,7 +168,9 @@ test.describe("installing and updating from a signed feed", () => {
 
       // …and an icon that is the app's own. Every app used to get the hub's mark copied
       // under its name, which is indistinguishable from "the icon did not work".
-      const installedIcon = join(
+      // The icon's name carries a hash of its bytes, so no desktop can serve a cached
+      // picture under it. Find it by prefix rather than by a name that changes.
+      const iconDirectory = join(
         childHome(root),
         ".local",
         "share",
@@ -176,8 +178,12 @@ test.describe("installing and updating from a signed feed", () => {
         "hicolor",
         "256x256",
         "apps",
-        `suite-${APP_ID}.png`,
       );
+      const written = (await readdir(iconDirectory)).filter(
+        (name) => name.startsWith(`suite-${APP_ID}-`) && name.endsWith(".png"),
+      );
+      expect(written).toHaveLength(1);
+      const installedIcon = join(iconDirectory, written[0] as string);
       const shipped = join(".dev", "apps", "start", "resources");
       expect(await digest(installedIcon)).toBe(
         await digest(join(shipped, "icons", `${APP_ID}.png`)),
@@ -266,7 +272,7 @@ test.describe("installing and updating from a signed feed", () => {
         "applications",
         `suite-${APP_ID}.desktop`,
       );
-      const icon = join(
+      const iconDirectory = join(
         childHome(root),
         ".local",
         "share",
@@ -274,10 +280,13 @@ test.describe("installing and updating from a signed feed", () => {
         "hicolor",
         "256x256",
         "apps",
-        `suite-${APP_ID}.png`,
       );
+      const iconOf = async (): Promise<string[]> =>
+        (await readdir(iconDirectory).catch(() => [])).filter((name) =>
+          name.startsWith(`suite-${APP_ID}-`),
+        );
       expect(existsSync(entry)).toBe(true);
-      expect(existsSync(icon)).toBe(true);
+      expect(await iconOf()).toHaveLength(1);
 
       // The confirmation is a native dialog, which no page can press. Answer it here, in the
       // main process, the way the person would — "Uninstall" is button 1.
@@ -291,7 +300,7 @@ test.describe("installing and updating from a signed feed", () => {
         .poll(() => existsSync(join(appsRoot, "Canvas")), { timeout: 30_000 })
         .toBe(false);
       await expect.poll(() => existsSync(entry), { timeout: 30_000 }).toBe(false);
-      await expect.poll(() => existsSync(icon), { timeout: 30_000 }).toBe(false);
+      await expect.poll(iconOf, { timeout: 30_000 }).toHaveLength(0);
       const record = JSON.parse(await readFile(join(root, "data", "installs.json"), "utf8"));
       expect(record.apps).toEqual([]);
 
