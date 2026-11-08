@@ -23,7 +23,13 @@ Last reviewed 2026-11-08, at Suite Start 0.3.12.
 | macOS and Windows         | Not built | No signing identity, so nothing is published.                                                                                                                                                           |
 | Standalone app installs   | Not built | Apps currently arrive through Start.                                                                                                                                                                    |
 
+| The gate | Working | Local, in three parts: a pre-push hook per repository, `scripts/ci.mjs` across all seven, and `--fresh` to prove a commit rather than a working tree. No CI service; see ADR-0002. |
+
 Missing and Not built are listed so their absence is not a surprise rather than a discovery.
+
+The gate being local is a decision, not a gap. What it costs: nothing checks a pull request, and
+nothing runs overnight. What it buys: the evidence is a command you can run, and it cannot be
+"skipped because the account lapsed".
 
 ## Where things are
 
