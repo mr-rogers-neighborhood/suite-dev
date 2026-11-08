@@ -23,7 +23,7 @@ node scripts/release.mjs start --tag start-v0.3.0 --publish    # the hub, off th
 | -------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
 | The app's tree is dirty                      | The artifact would carry work nobody reviewed. Commit or stash first.                                                       |
 | `package.json` and `suite.app.json` disagree | The version, the manifest and the tag describe one commit. Two of them saying different things is the failure this catches. |
-| The gate fails                               | `check:full` — the same command the pipeline runs — is run first. "The gate passed" is seen, not remembered.                |
+| The gate fails                               | `check:full`, the same command a push runs, is run first. "The gate passed" is seen, not remembered.                        |
 
 The version always comes from `package.json`, never from `git describe`. Suite Canvas carries
 `v1.0.0`–`v1.1.0` tags from an older layout above its current `v0.1.0`, so tags cannot be trusted to

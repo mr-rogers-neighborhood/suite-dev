@@ -399,7 +399,7 @@ async function main() {
 
   console.log(`\nreleasing ${app.name} ${version} as ${tag}`);
 
-  // The gate is the same command the pipeline runs, so "the gate passed" is something
+  // The gate is the same command the pre-push hook runs, so "the gate passed" is something
   // this saw rather than something a person remembered.
   console.log("\n=== gate ===");
   await runOnce({ name: "check:full", command: "pnpm", args: ["run", "check:full"], cwd: repo });
