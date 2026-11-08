@@ -10,8 +10,15 @@ and one in `suite-dev` staging four real binaries and running the cross-app suit
 
 None of them ran. Every job failed within two seconds with _"the job was not started because your
 account is locked due to a billing issue"_ — an account-level condition that no workflow file can
-address, and one that does not appear to correspond to an unpaid balance. A workflow that cannot run
-is worse than no workflow: it looks like a gate, and it is a comment.
+address. A workflow that cannot run is worse than no workflow: it looks like a gate, and it is a
+comment.
+
+**Cause, corrected 2026-11-08.** The message says billing; the actual cause is an **education
+entitlement that lapsed**. The distinction matters for anyone reading this later deciding whether to
+retry: this is not a payment to make, and re-adding a workflow before the entitlement is restored
+reproduces the same failure. The lesson is unchanged and it is the one worth keeping: an account-level
+condition is invisible from inside a repository, so a repository cannot be the place that proves it is
+healthy.
 
 Meanwhile the gates themselves were finding real things whenever they were run by hand. Adding the
 workflows surfaced four red ones that nothing had been running: two repositories failing `knip`, a
@@ -50,3 +57,25 @@ a release is made deliberately.
   the unit files are one `git show` away.
 - The workflow files are in the history. If Actions becomes usable, `git show` recovers them and they
   were validated with `actionlint`; nothing about them was wrong except that they never ran.
+
+## Recurrence
+
+**2026-11-08.** Six workflow files were added back, one per repository, while working on unrelated
+changes. They were removed the same day. The rule was already written down in three places — this
+record, and `copilot-instructions.md` in three repositories, which says in as many words: *never claim
+an external CI service gates `main`*. What made it easy to re-add anyway was the number of artefacts
+that described a service as present:
+
+- a `.woodpecker.yaml` in every repository, which is a valid pipeline config for a server that does
+  not exist;
+- a `ci.mjs` comment claiming to run the same command "the Woodpecker pipeline runs";
+- `suite-go/AGENTS.md` saying Woodpecker runs the gate;
+- an accepted decision record in `suite-canvas` describing a `pnpm ci` container pipeline as shipped,
+  which was never in `package.json` and has no history.
+
+All four are gone. The replacement for what they offered is `node scripts/ci.mjs --fresh`, which
+proves a *commit* passes from a clean export rather than proving a working tree passes, and is the
+claim a hosted runner would have made.
+
+**Do not add a CI service back until the two conditions below are met.** A red mark that nothing can
+act on is worse than no mark, and it is the specific artefact this record exists to prevent.

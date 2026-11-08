@@ -1,29 +1,64 @@
 # Running the gate
 
-There is no CI service. The gate runs on the machine that builds the releases — see
-[ADR-0002](../adr/0002-the-gate-runs-here.md) for why.
+There is no CI service, and that is a decision rather than a gap. See
+[ADR-0002](../adr/0002-the-gate-runs-here.md).
+
+The reason is worth stating once, because it keeps getting rediscovered: GitHub Actions fails on this
+account at startup, before any step runs. It is an **education entitlement that lapsed**, not billing
+and not a YAML problem. A workflow that cannot start looks like a gate and is a comment, so the gate
+moved to the machine that builds the releases.
 
 ## Before a push
 
 Each repository installs a `pre-push` hook on `pnpm install`, and it runs that repository's own
 `check`. Nothing else is needed: a push that would carry a red tree fails instead.
 
+A fresh clone has no hook until `pnpm install` runs. A clone nobody installs is never gated, which is
+the trade every hook-based setup makes.
+
 ## The whole suite
 
 ```sh
 cd suite-dev
 node scripts/ci.mjs            # every gate, dependency order
-node scripts/ci.mjs --e2e      # plus the cross-app suite (stages four binaries)
 node scripts/ci.mjs --only suite-canvas
 node scripts/ci.mjs --dry      # what it would run
 ```
 
 `suite-sync` goes first because the apps pin its tags; a failure there explains the four that follow.
+`suite-go` is in the list because it pins the same `@suite/theme` and `@suite/ui`: a break in the
+shared packages reaches the desktop through the phone as easily as the other way round.
+
+## Proving a commit, not a working tree
+
+`check:full` answers "does this tree pass". It cannot answer "does this commit pass", because a warm
+`node_modules`, a gitignored `.env` or a stale `dist` can all make a broken commit green. A hosted
+runner would have made that stronger claim; this is how the claim is made without one:
+
+```sh
+node scripts/ci.mjs --fresh                    # every repository
+node scripts/ci.mjs --fresh --only suite-sync
+```
+
+It exports `HEAD` with `git archive` into `.dev/ci-fresh/<repo>`, installs from the lockfile there,
+and runs the gate against the result. A `git archive` contains tracked files only, so the three
+things that can hide a failure are absent by construction.
+
+**What it proves, precisely.** The repository's own commit passes from a clean export with a clean
+install and no build output. It is not a hermetic clone: Canvas declares `@suite/desktop` and
+`@suite/sync` as `link:../suite-*`, and those resolve against the working tree, so a mid-edit sibling
+can influence its result. Repositories that pin by git tag are unaffected.
+
+A passing export is deleted. A failing one is kept and its path printed, because it is the only copy
+of the tree the failure came from.
+
+**It earns its keep.** On its first run it found that the documentation index could not be verified
+outside a checkout at all: the rows are dated by commit and ordered by the timestamp within that day,
+which the index does not store, so any export either failed the comparison or rewrote real dates to
+the moment it unpacked. That is fixed; the check now skips in a tree with no history, for the same
+reason `check-dist` does.
 
 ## The cross-app suite runs when you ask
-
-It is too slow to sit in front of a push: it stages four real binaries, needs a display, and takes about
-forty seconds once staged.
 
 ```sh
 node scripts/ci.mjs --e2e
@@ -31,92 +66,48 @@ node scripts/ci.mjs --e2e
 DISPLAY=:1 xvfb-run -a pnpm e2e
 ```
 
-There is no timer. It ran on a nightly systemd timer for exactly as long as it took to notice the timer
-was never installed, and a file describing an automatic run nobody enabled is the same artefact as a
-workflow that cannot start. Nothing detects a broken binary combination overnight; the binaries only
-change when a release is cut, and that is already a deliberate manual act.
+It is too slow to sit in front of a push: it stages four real binaries, needs a display, and takes
+about forty seconds once staged. There is no timer. It ran on a nightly systemd timer for exactly as
+long as it took to notice the timer was never installed.
 
-It earns its keep: this suite is what caught `ts-mls` importing `@noble/ciphers` without declaring it —
-a crash that no unit test could see, because the workspace hoisted the package and only a packaged app
+It earns its keep too: this suite is what caught `ts-mls` importing `@noble/ciphers` without declaring
+it, a crash no unit test could see, because the workspace hoisted the package and only a packaged app
 could miss it.
 
-## Releasing is not the pipeline's job
+## Releasing is not the gate's job
 
 The gate answers "is this repository healthy". It does not answer "is this release good", and the
-signing key is not handed to a runner for it to try. A release is one command on the machine that holds
-the key:
+signing key is not handed to anything that runs unattended. A release is one command on the machine
+that holds the key:
 
 ```sh
 node scripts/release.mjs planner --publish
 ```
 
-It runs the gate itself before it builds, so a release cannot skip what a push must pass. See
-[cutting a release](release.md).
+It runs the gate before it builds, so a release cannot skip what a push must pass. It also refuses
+when the version files disagree, which is how a tag once ended up naming a release whose artifact was
+one version behind. See [cutting a release](release.md).
 
-## If a hosted runner ever appears
+## Why there is no service
 
-The workflow files are in the git history — every one was validated with `actionlint` and none of them
-was wrong. `git log --diff-filter=D -- .github/workflows` finds the commit that removed them.
+Three artefacts used to make a service look present, and all three are gone:
 
-## The Woodpecker pipeline
+- **Six GitHub Actions workflows.** Removed. They never started once.
+- **A `.woodpecker.yaml` in every repository.** Removed. Run locally, `woodpecker-cli exec` wrote
+  **5,490 root-owned files in suite-sync and 68,644 in planner**, and the next `pnpm install` failed
+  with `EACCES` naming a path inside `node_modules/.pnpm` rather than the container that caused it.
+- **`.github/dependabot.yml`.** Removed. It is a service, and it opened pull requests that no gate
+  could run against.
 
-Every repository has a `.woodpecker.yaml`. It is one step, and it calls `pnpm check:full` — the same
-command `scripts/ci.mjs` runs, so there is one definition of "this repository is healthy" rather than a
-list here and a list there.
+An accepted decision record in `suite-canvas` described a `pnpm ci` container pipeline as shipped.
+It never existed: no such script was ever in `package.json` and `scripts/docker.mjs` has no history.
+That record is withdrawn.
 
-`check` stays the fast gate a push runs. `check:full` is what a runner runs, because `check` uses
-`vitest run --changed` in the app repositories and that needs git history a container may not have.
+**What would change this.** Two things, and only two: a second contributor, at which point nothing
+checks a pull request; or a second machine, at which point a gate that only one laptop can run stops
+being a gate. Until then, adding a workflow file reintroduces the exact artefact ADR-0002 removed, and
+the rule in `copilot-instructions.md` stands: never claim an external CI service gates `main`, name
+the local command instead.
 
-### Running it with no server
-
-```sh
-# Once: the CLI is a single binary, and it must match the server's major version.
-gh release download v3.20.1 --repo woodpecker-ci/woodpecker \
-  --pattern "woodpecker-cli_linux_amd64.tar.gz" --clobber
-tar xzf woodpecker-cli_linux_amd64.tar.gz
-install -m 0755 woodpecker-cli ~/.local/bin/
-
-# Then, from any repository:
-woodpecker-cli exec --pipeline-event push --commit-branch main \
-  --repo mr-rogers-neighborhood/suite-sync .woodpecker.yaml
-```
-
-The `when` filter is why the metadata flags are needed: without an event, every workflow is filtered out
-and the CLI reports "no workflows to execute".
-
-### Two things the first run teaches
-
-**`exec` copies the tree without a usable `.git`.** That is by design — it is for testing pipeline steps,
-not for being a runner. The committed-output check cannot compare against history there, so it says
-`check-dist: skipped — git cannot see a work tree here` rather than passing quietly. A Woodpecker
-_server_ clones with git, so the check does run there.
-
-**The container writes back as root, and it writes into `node_modules` too.** A run leaves build output
-_and_ installed packages owned by root — 5,490 files in `suite-sync` and 68,644 in `suite-planner` after
-one pass each. The next `pnpm install` then fails with `EACCES`, and the failure names a path inside
-`node_modules/.pnpm` rather than the container that caused it.
-
-Take ownership back rather than deleting anything:
-
-```sh
-docker run --rm -v "$PWD:/w" alpine chown -R "$(id -u):$(id -g)" /w
-```
-
-Check with `find . -user root -not -path "./node_modules/*"`. If that returns anything, a container wrote
-to this checkout, and the next confusing error is probably that.
-
-### When a server becomes worth it
-
-It buys two things the CLI cannot: a trigger that is not your laptop, and a history with notifications.
-Both need the forge to reach the server, so the setup is:
-
-1. `woodpecker-server` + `woodpecker-agent` (SQLite is fine at this size), on a machine that is on when
-   you push.
-2. **A Cloudflare tunnel** for the webhook endpoint — outbound-only, no port forwarding, revocable.
-3. A GitHub OAuth app, because the forge connection is how Woodpecker authenticates and reports status.
-4. **Approval required for pull requests from outside contributors.** The repositories are public, and a
-   fork PR otherwise runs that fork's code on your machine.
-5. **Never the signing key.** Not in a secret, not on the agent. Releases stay a deliberate manual act.
-
-None of that is done, deliberately: it is a server to patch, a database to back up, and a tunnel
-credential — for a benefit that a second contributor or a second machine would make real.
+If a runner does become available, `git log --diff-filter=D -- .github/workflows` recovers the files
+that were validated with `actionlint`. Nothing about them was wrong except that they never ran.
