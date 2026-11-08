@@ -49,6 +49,11 @@ function sha512(bytes: Buffer): string {
   return createHash("sha512").update(bytes).digest("base64");
 }
 
+/** The digest of a file, for asking "is this the same picture?" without decoding it. */
+async function digest(path: string): Promise<string> {
+  return sha512(await readFile(path));
+}
+
 /** A feed directory holding one version, signed the way a release is signed. */
 async function feedFor(root: string, artifact: StandIn, privateKey: Buffer): Promise<string> {
   const directory = join(root, "feed", APP_ID);
@@ -122,7 +127,7 @@ test.describe("installing and updating from a signed feed", () => {
     `no publisher key at ${KEY_PATH}, so no feed can be signed that the hub would trust`,
   );
 
-  test("a card installs a version, then replaces it and prunes the old one", async () => {
+  test("a card installs a version, replaces it, and offers the way back", async () => {
     const root = await mkdtemp(join(tmpdir(), "suite-install-spec-"));
     const appsRoot = join(root, "Applications", "Suite");
 
@@ -143,6 +148,31 @@ test.describe("installing and updating from a signed feed", () => {
       // 2. A managed install earns a menu entry, so it can be opened without the hub.
       const entry = join(root, ".local", "share", "applications", `suite-${APP_ID}.desktop`);
       expect(await readFile(entry, "utf8")).toContain(`Exec="${join(appsRoot, "Canvas", "0.1.0")}`);
+
+      // …and an icon that is the app's own. Every app used to get the hub's mark copied
+      // under its name, which is indistinguishable from "the icon did not work".
+      const installedIcon = join(
+        root,
+        ".local",
+        "share",
+        "icons",
+        "hicolor",
+        "256x256",
+        "apps",
+        `suite-${APP_ID}.png`,
+      );
+      const shipped = join(".dev", "apps", "start", "resources");
+      expect(await digest(installedIcon)).toBe(
+        await digest(join(shipped, "icons", `${APP_ID}.png`)),
+      );
+      expect(await digest(installedIcon)).not.toBe(await digest(join(shipped, "icon.png")));
+
+      // 2b. Settings says where everything is, so leaving does not require guesswork.
+      await hub.page.getByRole("tab", { name: "Settings" }).click();
+      const settings = await hub.page.locator("#panel-settings").innerText();
+      expect(settings).toContain(join(appsRoot, "Canvas", "0.1.0"));
+      expect(settings).toContain(join(root, "Documents", "Canvas"));
+      await hub.page.getByRole("tab", { name: "Apps" }).click();
       await hub.close();
 
       // 3. A feed offering 0.1.1: the card should ask to update, and a press should replace.
@@ -155,11 +185,98 @@ test.describe("installing and updating from a signed feed", () => {
       await update.click();
       await hub.card.getByRole("button", { name: "Open" }).waitFor({ timeout: 120_000 });
 
-      // Replaced, and the version it replaced is gone rather than left beside it.
-      expect(await readdir(join(appsRoot, "Canvas"))).toEqual(["0.1.1"]);
+      // Replaced, and exactly one version kept: the one to go back to. A history would be a
+      // package manager; one step back is what makes a bad update a button.
+      expect(await readdir(join(appsRoot, "Canvas"))).toEqual(["0.1.0", "0.1.1"]);
       const after = JSON.parse(await readFile(join(root, "data", "installs.json"), "utf8"));
       expect(after.apps[0].executable).toContain("0.1.1");
       expect(await hub.text()).toContain("0.1.1");
+
+      // 4. And the way back: the card offers the version it replaced, and pressing it moves
+      //    the record to a binary this machine already has.
+      const back = hub.card.getByRole("button", { name: "Roll back to 0.1.0" });
+      await back.waitFor({ timeout: 30_000 });
+      await back.click();
+
+      // Two writes, so two polls: the record is what a launch reads, and the entry is what
+      // the desktop reads. Asserting either one without waiting is a race, not a test.
+      await expect
+        .poll(
+          async () => {
+            const record = JSON.parse(await readFile(join(root, "data", "installs.json"), "utf8"));
+            return record.apps[0].executable;
+          },
+          { timeout: 30_000 },
+        )
+        .toContain("0.1.0");
+      await expect
+        .poll(async () => readFile(entry, "utf8"), { timeout: 30_000 })
+        .toContain(`Exec="${join(appsRoot, "Canvas", "0.1.0")}`);
+
+      // Nothing was deleted on the way back, so the return trip is still offered.
+      expect(await readdir(join(appsRoot, "Canvas"))).toEqual(["0.1.0", "0.1.1"]);
+      await hub.card
+        .getByRole("button", { name: "Roll back to 0.1.1" })
+        .waitFor({ timeout: 30_000 });
+      await expect(back).toHaveCount(0);
+      await hub.close();
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  test("uninstall leaves nothing behind, and takes no document", async () => {
+    const root = await mkdtemp(join(tmpdir(), "suite-uninstall-spec-"));
+    const appsRoot = join(root, "Applications", "Suite");
+    const documents = join(root, "Documents", "Canvas");
+
+    try {
+      // A document is the one thing Start must never touch, so one is present throughout.
+      await mkdir(documents, { recursive: true });
+      const document = join(documents, "Kept.canvas");
+      await writeFile(document, "a file this hub has no business deleting");
+
+      const feed = await feedFor(root, standIn("0.1.0"), key as Buffer);
+      const hub = await launchHub(root, { SUITE_START_FEED_BASE: feed });
+
+      await hub.card.getByRole("button", { name: `Install ${APP_NAME}` }).click();
+      await hub.card.getByRole("button", { name: "Open" }).waitFor({ timeout: 120_000 });
+
+      const entry = join(root, ".local", "share", "applications", `suite-${APP_ID}.desktop`);
+      const icon = join(
+        root,
+        ".local",
+        "share",
+        "icons",
+        "hicolor",
+        "256x256",
+        "apps",
+        `suite-${APP_ID}.png`,
+      );
+      expect(existsSync(entry)).toBe(true);
+      expect(existsSync(icon)).toBe(true);
+
+      // The confirmation is a native dialog, which no page can press. Answer it here, in the
+      // main process, the way the person would — "Uninstall" is button 1.
+      await hub.app.evaluate(({ dialog }) => {
+        dialog.showMessageBox = (async () => ({ response: 1, checkboxChecked: false })) as never;
+      });
+      await hub.card.getByRole("button", { name: "Uninstall" }).click();
+
+      // Every trace of the install goes: the bytes, the entry, the icon, the record.
+      await expect
+        .poll(() => existsSync(join(appsRoot, "Canvas")), { timeout: 30_000 })
+        .toBe(false);
+      await expect.poll(() => existsSync(entry), { timeout: 30_000 }).toBe(false);
+      await expect.poll(() => existsSync(icon), { timeout: 30_000 }).toBe(false);
+      const record = JSON.parse(await readFile(join(root, "data", "installs.json"), "utf8"));
+      expect(record.apps).toEqual([]);
+
+      // …and the document is still exactly where it was.
+      expect(await readFile(document, "utf8")).toBe("a file this hub has no business deleting");
+      await hub.card
+        .getByRole("button", { name: `Install ${APP_NAME}` })
+        .waitFor({ timeout: 30_000 });
       await hub.close();
     } finally {
       await rm(root, { recursive: true, force: true });

@@ -7,6 +7,18 @@ This repository owns no product code. It assumes the product repositories are cl
 
 ---
 
+## If you are deciding whether to trust this
+
+Four pages, in the order they answer the question:
+
+- [Status](docs/STATUS.md) — what works, what is missing, per subsystem, with no percentages.
+- [What exits alpha](docs/ALPHA.md) — the definition, and a checklist that can be pointed at.
+- [Roadmap](docs/ROADMAP.md) — what is next, what "done" means for each item, and how priorities
+  are labelled.
+- [Verifying a download](docs/how-to/verify.md) — three checks, one minute.
+
+---
+
 Developer note:
 
 **What is Suite?**
