@@ -62,8 +62,8 @@ a release is made deliberately.
 
 **2026-11-08.** Six workflow files were added back, one per repository, while working on unrelated
 changes. They were removed the same day. The rule was already written down in three places — this
-record, and `copilot-instructions.md` in three repositories, which says in as many words: *never claim
-an external CI service gates `main`*. What made it easy to re-add anyway was the number of artefacts
+record, and `copilot-instructions.md` in three repositories, which says in as many words: _never claim
+an external CI service gates `main`_. What made it easy to re-add anyway was the number of artefacts
 that described a service as present:
 
 - a `.woodpecker.yaml` in every repository, which is a valid pipeline config for a server that does
@@ -74,7 +74,7 @@ that described a service as present:
   which was never in `package.json` and has no history.
 
 All four are gone. The replacement for what they offered is `node scripts/ci.mjs --fresh`, which
-proves a *commit* passes from a clean export rather than proving a working tree passes, and is the
+proves a _commit_ passes from a clean export rather than proving a working tree passes, and is the
 claim a hosted runner would have made.
 
 **Do not add a CI service back until the two conditions below are met.** A red mark that nothing can
