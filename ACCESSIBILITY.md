@@ -27,7 +27,7 @@ Listed because a statement that admits nothing is not a statement:
 
 - **Decorative hairlines are below 3:1 by design.** A divider between list rows is exempt
   under SC 1.4.11, and a line strong enough to reach 3:1 stops being a hairline. Anything
-  that is a *component boundary* uses a different role that is held to 3:1.
+  that is a _component boundary_ uses a different role that is held to 3:1.
 - **Canvas's infinite board is not fully keyboard navigable.** Cards can be reached and
   moved, but spatial navigation has no complete keyboard model yet.
 - **Drag-and-drop has no keyboard equivalent** in the canvas or the planner.
