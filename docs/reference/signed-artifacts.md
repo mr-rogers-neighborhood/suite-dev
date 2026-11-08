@@ -9,13 +9,13 @@ change its format.
 
 ## The five questions
 
-| Question | Desktop app | Mobile pack |
-|---|---|---|
-| What is it? | `suite.app` manifest: id, version, capabilities | `manifest.json`: id, name, version, entry |
-| Is it intact? | The feed names one AppImage with its hash | Per-file sha256 for every file in the pack |
-| Who signed it? | ed25519, detached `.sig` beside `latest-linux.yml` | ed25519 over the manifest, `signature` field |
-| Which key do we trust? | Pinned in `@suite/desktop`: `SUITE_UPDATE_PUBLIC_KEY`, first 32 hex of sha256 as the fingerprint | Pinned in the APK |
-| What if it fails? | Install refused; the working copy stays | Install refused; the installed version stays |
+| Question               | Desktop app                                                                                      | Mobile pack                                  |
+| ---------------------- | ------------------------------------------------------------------------------------------------ | -------------------------------------------- |
+| What is it?            | `suite.app` manifest: id, version, capabilities                                                  | `manifest.json`: id, name, version, entry    |
+| Is it intact?          | The feed names one AppImage with its hash                                                        | Per-file sha256 for every file in the pack   |
+| Who signed it?         | ed25519, detached `.sig` beside `latest-linux.yml`                                               | ed25519 over the manifest, `signature` field |
+| Which key do we trust? | Pinned in `@suite/desktop`: `SUITE_UPDATE_PUBLIC_KEY`, first 32 hex of sha256 as the fingerprint | Pinned in the APK                            |
+| What if it fails?      | Install refused; the working copy stays                                                          | Install refused; the installed version stays |
 
 ## Where they genuinely differ
 

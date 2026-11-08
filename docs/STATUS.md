@@ -2,24 +2,26 @@
 
 What works, per subsystem. "Working" means a test fails if it breaks.
 
-Last reviewed 2026-11-07, at Suite Start 0.3.7.
+Last reviewed 2026-11-08, at Suite Start 0.3.12.
 
-| Subsystem                 | State     | Notes                                                                  |
-| ------------------------- | --------- | ---------------------------------------------------------------------- |
-| Install                   | Working   | Signed feed, fingerprint check, binary placed, menu entry written.     |
-| Update                    | Working   | A card offers the feed's version; pressing it replaces and relaunches. |
-| Rollback                  | Working   | One step back, from disk, no download.                                 |
-| Uninstall                 | Working   | Versions, entry, icon and record removed. Documents are not touched.   |
-| Icons                     | Working   | Each app's own artwork, at 256 px, in the hicolor theme.               |
-| Routing                   | Working   | `suite://` links and document files open the owning app.               |
-| Document index            | Working   | Lists documents without importing any app's code.                      |
-| Sync: protocol, transport | Working   | Encrypted frames through a blind relay.                                |
-| Sync: invite and join     | Missing   | Adding a device is a CLI step.                                         |
-| Sync: headless relay      | Missing   | The relay runs inside Start. A standalone binary is next.              |
-| Sync in the apps          | Partial   | Canvas syncs. Planner and Budget do not yet.                           |
-| App features              | Alpha     | Canvas is furthest along. Each app's README says what it has.          |
-| macOS and Windows         | Not built | No signing identity, so nothing is published.                          |
-| Standalone app installs   | Not built | Apps currently arrive through Start.                                   |
+| Subsystem                 | State     | Notes                                                                                                                                                                                                   |
+| ------------------------- | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Install                   | Working   | Signed feed, fingerprint check, binary placed, menu entry written.                                                                                                                                      |
+| Update                    | Working   | A card offers the feed's version; pressing it replaces and relaunches. An app that keeps a tray now hands over to the newer copy instead of losing the single-instance race and showing its old window. |
+| Rollback                  | Working   | One step back, from disk, no download.                                                                                                                                                                  |
+| Uninstall                 | Working   | Versions, entry, icon and record removed. Documents are not touched.                                                                                                                                    |
+| Icons                     | Working   | Each app's own artwork, at 256 px, in the hicolor theme.                                                                                                                                                |
+| Routing                   | Working   | `suite://` links and document files open the owning app.                                                                                                                                                |
+| Document index            | Working   | Lists documents without importing any app's code.                                                                                                                                                       |
+| Sync: protocol, transport | Working   | Encrypted frames through a blind relay.                                                                                                                                                                 |
+| Sync: invite and join     | Missing   | Adding a device is a CLI step.                                                                                                                                                                          |
+| Sync: headless relay      | Missing   | The relay runs inside Start. A standalone binary is next.                                                                                                                                               |
+| Sync in the apps          | Partial   | Canvas syncs. Planner and Budget do not yet.                                                                                                                                                            |
+| Start screens             | Working   | One centred card, `Launch`, in all four apps. The three apps show it only on a first run.                                                                                                               |
+| Accessibility             | Partial   | Colour and the start screens are gated by machine. No manual pass has been run yet; the map says which criteria that leaves unverified.                                                                 |
+| App features              | Alpha     | Canvas is furthest along. Each app's README says what it has.                                                                                                                                           |
+| macOS and Windows         | Not built | No signing identity, so nothing is published.                                                                                                                                                           |
+| Standalone app installs   | Not built | Apps currently arrive through Start.                                                                                                                                                                    |
 
 Missing and Not built are listed so their absence is not a surprise rather than a discovery.
 
