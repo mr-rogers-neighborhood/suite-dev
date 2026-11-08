@@ -2,7 +2,7 @@
 
 What works, per subsystem. "Working" means a test fails if it breaks.
 
-Last reviewed 2026-11-07, at Suite Start 0.3.5.
+Last reviewed 2026-11-07, at Suite Start 0.3.7.
 
 | Subsystem                 | State     | Notes                                                                  |
 | ------------------------- | --------- | ---------------------------------------------------------------------- |
