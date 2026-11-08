@@ -23,6 +23,10 @@
     {
       "name": "suite-budget",
       "path": "../suite-budget"
+    },
+    {
+      "name": "suite-go",
+      "path": "../suite-go"
     }
   ],
   "settings": {
@@ -32,7 +36,11 @@
       "**/release": true,
       "**/test-results": true,
       "**/storybook-static": true,
-      "**/.turbo": true
+      "**/.turbo": true,
+      "**/apps/go/android/.gradle": true,
+      "**/apps/go/android/app/build": true,
+      "**/apps/go/android/build": true,
+      "**/apps/go/dist": true
     },
     "search.exclude": {
       "**/.dev": true,
@@ -40,7 +48,10 @@
       "**/dist": true,
       "**/release": true,
       "**/test-results": true,
-      "**/pnpm-lock.yaml": true
+      "**/pnpm-lock.yaml": true,
+      "**/apps/go/android/build": true,
+      "**/apps/go/dist": true,
+      "**/apps/go/android/.gradle": true
     },
     "terminal.integrated.cwd": "${workspaceFolder:suite-dev}",
     "typescript.tsdk": "${workspaceFolder:suite-canvas}/node_modules/typescript/lib",
