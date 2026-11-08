@@ -191,11 +191,12 @@ test.describe("installing and updating from a signed feed", () => {
       expect(await digest(installedIcon)).not.toBe(await digest(join(shipped, "icon.png")));
 
       // 2b. Settings says where everything is, so leaving does not require guesswork.
-      await hub.page.getByRole("tab", { name: "Settings" }).click();
+      // Selected by panel rather than by label: a tab's name is copy, and copy changes.
+      await hub.page.locator('[role="tab"][aria-controls="panel-settings"]').click();
       const settings = await hub.page.locator("#panel-settings").innerText();
       expect(settings).toContain(join(appsRoot, "Canvas", "0.1.0"));
       expect(settings).toContain(join(root, "documents", "Canvas"));
-      await hub.page.getByRole("tab", { name: "Apps" }).click();
+      await hub.page.locator('[role="tab"][aria-controls="panel-apps"]').click();
       await hub.close();
 
       // 3. A feed offering 0.1.1: the card should ask to update, and a press should replace.
