@@ -1,0 +1,547 @@
+import { spawn } from "node:child_process";
+import { existsSync } from "node:fs";
+import { readFile, writeFile } from "node:fs/promises";
+import { hostname } from "node:os";
+import { dirname, join } from "node:path";
+import { pathToFileURL } from "node:url";
+import { isTrustedSender } from "@suite/desktop";
+import { app, BrowserWindow, dialog, ipcMain, Menu, net, protocol, shell } from "electron";
+import { IPC } from "../shared/ipc.js";
+import { documentFromArgv } from "./documentLink.js";
+import { desktopPaths } from "./paths.js";
+import { desktopCsp, resolveAppAsset } from "./protocol.js";
+import { recentsStore } from "./recents.js";
+import { devServerUrl, isRendererOrigin, rendererUrl } from "./rendererUrl.js";
+import { DocumentStore, freeDocumentPath, looksLikeCanvasFile } from "./store.js";
+import { registerSyncIpc } from "./sync/ipc.js";
+import { checkForUpdates } from "./updateCheck.js";
+
+/**
+ * The Canvas desktop shell.
+ *
+ * Its job is small and it is all here: one instance, one window, one document.
+ * The renderer is the web build, unchanged, loaded from a real origin so the
+ * routes it already has keep working. Everything that judges a file — the lock,
+ * the write, the backups, recovery — lives in `store.ts`, which is why it can be
+ * tested without a window at all.
+ */
+const APP_ID = "run.suite.canvas";
+/** Where "Support Suite…" goes. One line, so it can point at whatever page should take money. */
+const SUPPORT_URL = "https://github.com/mr-rogers-neighborhood/suite-canvas";
+// The single-instance lock lives in `userData`, so two copies of the shell need
+// two directories. A test or a second demo profile sets this; a normal launch
+// keeps the platform default and finds the document it already had.
+const userDataOverride = process.env.SUITE_CANVAS_USER_DATA?.trim();
+if (userDataOverride !== undefined && userDataOverride.length > 0) {
+  app.setPath("userData", userDataOverride);
+}
+/** Files handed to a cold start, before `ready`. */
+const pendingFiles = [];
+let mainWindow = null;
+let store = null;
+let syncIpc = null;
+let paths = desktopPaths();
+let recents = null;
+protocol.registerSchemesAsPrivileged([
+  {
+    scheme: "app",
+    privileges: { standard: true, secure: true, supportFetchAPI: true, corsEnabled: true },
+  },
+]);
+/** The renderer bundle. Packaged it sits in resources; in development, beside the app. */
+function rendererRoot() {
+  return app.isPackaged
+    ? join(process.resourcesPath, "renderer")
+    : join(app.getAppPath(), "..", "canvas", "dist");
+}
+function attachFile(target) {
+  const resolved = target.trim();
+  if (resolved.length === 0) return;
+  if (!looksLikeCanvasFile(resolved)) return;
+  pendingFiles.push(resolved);
+}
+/** The document the command line names, whether a path or a link the hub routed here. */
+function fileFromArgv(argv) {
+  return documentFromArgv(argv, paths.library, looksLikeCanvasFile, existsSync);
+}
+async function openInRenderer(info) {
+  const window = mainWindow;
+  if (!window) return;
+  const url = rendererUrl();
+  // No workspace id: the file is the identity, and the renderer asks the shell
+  // for it. A second copy in the address bar could only disagree with the file.
+  url.searchParams.set("desktop", "1");
+  window.setTitle(`${info.name} — Suite Canvas`);
+  await window.loadURL(url.toString());
+}
+function applyMenu() {
+  const documentOpen = store !== null;
+  const template = [
+    // The suite menu. Every item is a deep link Start resolves, so with Start
+    // absent they do nothing rather than fail: the window this belongs to is
+    // already the app that handles the files it opens.
+    {
+      label: "Suite",
+      submenu: [
+        {
+          label: "Open Suite Start",
+          click: () => {
+            void shell.openExternal("suite://start/").catch(() => {
+              // No handler installed: the launcher is not on this machine.
+            });
+          },
+        },
+        { type: "separator" },
+        {
+          label: "Open Canvas",
+          click: () => {
+            void shell.openExternal("suite://canvas/").catch(() => {});
+          },
+        },
+        {
+          label: "Open Planner",
+          click: () => {
+            void shell.openExternal("suite://planner/").catch(() => {});
+          },
+        },
+        {
+          label: "Open Budget",
+          click: () => {
+            void shell.openExternal("suite://budget/").catch(() => {});
+          },
+        },
+        { type: "separator" },
+        {
+          label: "Show in Start",
+          click: () => {
+            void shell.openExternal("suite://start/").catch(() => {});
+          },
+        },
+        {
+          // The one ask in the product. No account, no paywall, nothing gated;
+          // the source is MIT and stays that way whether or not anyone uses it.
+          label: "Support Suite…",
+          click: () => {
+            void shell.openExternal(SUPPORT_URL).catch(() => {});
+          },
+        },
+      ],
+    },
+    {
+      label: "File",
+      submenu: [
+        {
+          label: "Open…",
+          accelerator: "CmdOrCtrl+O",
+          click: () => {
+            void openDocumentDialog();
+          },
+        },
+        { type: "separator" },
+        {
+          label: "Save",
+          accelerator: "CmdOrCtrl+S",
+          enabled: documentOpen,
+          click: () => {
+            void store?.flush();
+          },
+        },
+        { type: "separator" },
+        { role: "close" },
+      ],
+    },
+    // Development only. A packaged build has no business offering to open the
+    // same file twice, and no reason to expose the data directory.
+    ...(app.isPackaged
+      ? []
+      : [
+          {
+            label: "Developer",
+            submenu: [
+              { role: "reload" },
+              { role: "toggleDevTools" },
+              { type: "separator" },
+              {
+                label: "Reveal app data",
+                click: () => {
+                  void shell.openPath(paths.data);
+                },
+              },
+              {
+                // The manual test for the lock. It needs its own Electron
+                // profile, or single-instance answers before the file lock is
+                // ever reached and the dialog never appears.
+                label: "Open this file in a second window",
+                enabled: documentOpen,
+                click: () => {
+                  const open = store?.documentInfo.path;
+                  if (!open) return;
+                  const profile = join(paths.data, "second-window");
+                  const child = spawn(process.execPath, [
+                    app.getAppPath(),
+                    `--user-data-dir=${profile}`,
+                    open,
+                  ]);
+                  child.unref();
+                },
+              },
+            ],
+          },
+        ]),
+    { role: "editMenu" },
+    { role: "viewMenu" },
+    { role: "windowMenu" },
+    {
+      role: "help",
+      submenu: [
+        {
+          label: "Where is my file?",
+          click: () => {
+            const path = store?.documentInfo.path;
+            if (path) shell.showItemInFolder(path);
+          },
+          enabled: documentOpen,
+        },
+        {
+          label: "Suite documentation",
+          click: () => {
+            void shell.openExternal("https://docs.suite.run");
+          },
+        },
+      ],
+    },
+  ];
+  Menu.setApplicationMenu(Menu.buildFromTemplate(template));
+}
+async function openDocumentDialog() {
+  const window = mainWindow;
+  if (!window) return;
+  const picked = await dialog.showOpenDialog(window, {
+    title: "Open a workspace",
+    properties: ["openFile"],
+    filters: [
+      { name: "Suite Canvas workspace", extensions: ["canvas"] },
+      { name: "Legacy Suite workspace", extensions: ["suite"] },
+    ],
+  });
+  const target = picked.filePaths[0];
+  if (picked.canceled || !target) return;
+  await openDocument(target);
+}
+/** Open a file and hand it to the renderer, or explain why not. */
+async function openDocument(path) {
+  const window = mainWindow;
+  if (!window) return;
+  const result = await DocumentStore.open(path, { appId: APP_ID, paths });
+  if (!result.ok) {
+    // A refusal keeps the window on whatever it was showing, and says what
+    // happened. Losing the open must never look like the file is gone.
+    await dialog.showMessageBox(window, {
+      type: result.code === "locked" ? "warning" : "error",
+      title: "Suite Canvas",
+      message: result.message,
+      buttons: result.code === "locked" ? ["Open a copy", "Cancel"] : ["OK"],
+      defaultId: 0,
+      cancelId: 1,
+    });
+    return;
+  }
+  await adopt(result);
+  await openInRenderer(result.info);
+}
+/**
+ * Make a freshly opened document the window's document.
+ *
+ * One place, so the two ways to get here — opening a file and creating one —
+ * cannot disagree about what counts as history. Recording a recent is a
+ * convenience, so failing it must not fail the open.
+ */
+async function adopt(result) {
+  await store?.close();
+  store = result.store;
+  await recents?.remember(result.info.path).catch(() => {
+    // History is a convenience; an unrecorded open is still a successful one.
+  });
+  applyMenu();
+}
+async function showLauncher() {
+  const window = mainWindow;
+  if (!window) return;
+  window.setTitle("Suite Canvas");
+  const url = rendererUrl();
+  url.searchParams.set("desktop", "1");
+  await window.loadURL(url.toString());
+}
+/**
+ * The window's own icon.
+ *
+ * A desktop entry draws its icon from the hicolor theme; a running window's taskbar icon is
+ * `_NET_WM_ICON`, which Chromium fills only when `BrowserWindow` is given one. Without it the
+ * panel shows Electron's logo beside this app's own entry.
+ */
+function windowIcon() {
+  const packaged = join(process.resourcesPath, "icon.png");
+  if (app.isPackaged && existsSync(packaged)) return packaged;
+  const source = join(app.getAppPath(), "build", "icon.png");
+  return existsSync(source) ? source : null;
+}
+function createWindow() {
+  const icon = windowIcon();
+  const window = new BrowserWindow({
+    width: 1280,
+    height: 840,
+    minWidth: 720,
+    minHeight: 480,
+    show: false,
+    backgroundColor: "#ffffff",
+    ...(icon === null ? {} : { icon }),
+    webPreferences: {
+      preload: join(app.getAppPath(), "dist", "preload", "index.cjs"),
+      sandbox: true,
+      contextIsolation: true,
+      nodeIntegration: false,
+      webSecurity: true,
+    },
+  });
+  window.once("ready-to-show", () => window.show());
+  // No navigation away from the bundle, and no new windows: a document that
+  // carries a link opens it in the browser, never in an app window.
+  window.webContents.setWindowOpenHandler(({ url }) => {
+    if (url.startsWith("https://") || url.startsWith("http://")) void shell.openExternal(url);
+    return { action: "deny" };
+  });
+  window.webContents.on("will-navigate", (event, url) => {
+    if (!isRendererOrigin(url)) event.preventDefault();
+  });
+  window.on("closed", () => {
+    mainWindow = null;
+  });
+  // A quit must not lose the debounce window: the last edit is written before
+  // the window goes away.
+  window.on("close", (event) => {
+    if (!store) return;
+    const current = store;
+    store = null;
+    event.preventDefault();
+    void current.close().finally(() => {
+      window.destroy();
+      if (app.isPackaged) app.quit();
+    });
+  });
+  return window;
+}
+/**
+ * The pages this shell accepts messages from: its own bundle, and the dev
+ * server when one is configured.
+ */
+function pageOrigins() {
+  const dev = devServerUrl();
+  return dev === null ? ["app://canvas"] : ["app://canvas", dev];
+}
+/**
+ * Register a channel, but only answer the page this shell loaded.
+ *
+ * Electron's checklist asks every handler to validate the sender. It costs one
+ * comparison and closes the gap between "the window is ours" and "the message
+ * came from our window".
+ */
+function onIpc(channel, handler) {
+  ipcMain.handle(channel, (event, ...args) => {
+    if (!isTrustedSender(event.senderFrame?.url, pageOrigins())) return undefined;
+    return handler(event, ...args);
+  });
+}
+function registerIpc() {
+  onIpc(IPC.loadDocument, () => {
+    if (!store) return null;
+    return { info: store.documentInfo, snapshot: store.currentSnapshot() };
+  });
+  onIpc(IPC.saveDocument, async (_event, request) => {
+    if (store) {
+      store.save(request);
+      return;
+    }
+    // A workspace with no file yet: this save is what creates it, named after
+    // the workspace rather than after a generated id.
+    const saved = request;
+    if (typeof saved?.workspaceId !== "string") return;
+    const created = await DocumentStore.create(
+      await freeDocumentPath(paths.library, saved.title, saved.workspaceId),
+      saved,
+      { appId: APP_ID, paths },
+    );
+    if (!created.ok) return;
+    await adopt(created);
+    await openInRenderer(created.info);
+  });
+  /**
+   * Make a new document and open the window on it.
+   *
+   * This is what "New canvas" means on the desktop, and it is not a navigation: the
+   * session comes from the file the shell has open, so a workspace id in the address bar
+   * would open the launcher again. The renderer sends the seed, main decides the path —
+   * the same rule as every other channel here, and the reason the seed carries no path.
+   */
+  onIpc(IPC.createDocument, async (_event, seed) => {
+    if (store) return;
+    const request = seed;
+    if (typeof request?.workspaceId !== "string") return;
+    const created = await DocumentStore.create(
+      await freeDocumentPath(paths.library, request.title, request.workspaceId),
+      request,
+      { appId: APP_ID, paths },
+    );
+    if (!created.ok) return;
+    await adopt(created);
+    await openInRenderer(created.info);
+  });
+  onIpc(IPC.flushDocument, async () => {
+    if (!store) return { ok: true };
+    await store.flush();
+    const failure = store.lastFailure;
+    return failure ?? { ok: true };
+  });
+  onIpc(IPC.documentInfo, () => store?.documentInfo ?? null);
+  onIpc(IPC.appInfo, () => ({
+    host: "desktop",
+    version: app.getVersion(),
+    platform: process.platform,
+  }));
+  onIpc(IPC.openFileDialog, () => openDocumentDialog());
+  onIpc(IPC.openDocument, async (_event, target) => {
+    // A path the shell itself reported earlier, re-validated here: the renderer
+    // may only ask for a file this process has already opened once.
+    if (typeof target !== "string") return;
+    const known = (await recents?.list()) ?? [];
+    if (!known.some((entry) => entry.path === target)) return;
+    if (!looksLikeCanvasFile(target)) return;
+    await openDocument(target);
+  });
+  onIpc(IPC.recentFiles, async () => {
+    const entries = (await recents?.list()) ?? [];
+    return entries.map((entry) => ({
+      path: entry.path,
+      name: entry.name,
+      folder: dirname(entry.path),
+      openedAt: entry.openedAt,
+    }));
+  });
+  onIpc(IPC.forgetRecent, async (_event, target) => {
+    if (typeof target !== "string") return;
+    await recents?.forget(target);
+  });
+}
+// A second launch focuses this one and hands over its file, rather than opening
+// a second window on the same document.
+const gotLock = app.requestSingleInstanceLock();
+if (!gotLock) {
+  app.quit();
+} else {
+  app.on("second-instance", (_event, argv) => {
+    if (mainWindow) {
+      if (mainWindow.isMinimized()) mainWindow.restore();
+      mainWindow.focus();
+    }
+    const target = fileFromArgv(argv);
+    if (target) void openDocument(target);
+  });
+  // macOS delivers these before `ready`, so they are registered before it.
+  app.on("open-file", (event, path) => {
+    event.preventDefault();
+    if (app.isReady() && mainWindow) {
+      void openDocument(path);
+      return;
+    }
+    attachFile(path);
+  });
+  // No `open-url` handler: `suite://` belongs to Start, which routes a link by
+  // launching this app with it in `argv`. A scheme this app does not register can
+  // never deliver this event, and listening for one would be a promise it cannot
+  // keep.
+  void app.whenReady().then(async () => {
+    paths = desktopPaths();
+    recents = recentsStore(paths.data);
+    app.setAppUserModelId(APP_ID);
+    protocol.handle("app", async (request) => {
+      const resolved = resolveAppAsset(request.url, rendererRoot());
+      if (!resolved.ok) return new Response("not found", { status: 404 });
+      const response = await net.fetch(pathToFileURL(resolved.file).toString());
+      const headers = new Headers(response.headers);
+      headers.set("Content-Security-Policy", desktopCsp());
+      headers.set("X-Content-Type-Options", "nosniff");
+      return new Response(response.body, { status: response.status, headers });
+    });
+    registerIpc();
+    // Sync is opt-in per workspace, so this only wires the doors; nothing connects until
+    // the page asks, and nothing is sent until it hands over a document update.
+    syncIpc = registerSyncIpc({
+      dataDir: paths.data,
+      currentWorkspaceId: () => store?.documentInfo.workspaceId ?? null,
+      webContents: () => mainWindow?.webContents ?? null,
+      // What the other person's screen calls this device. "Canvas on harbour-laptop" is a
+      // thing somebody can weigh when deciding whether to let it in; a fingerprint is not.
+      deviceName: `Canvas on ${hostname()}`,
+      kitFiles: {
+        pickSavePath: async (suggestedName) => {
+          const window = mainWindow;
+          if (window === null) return null;
+          const result = await dialog.showSaveDialog(window, {
+            title: "Save a way back in",
+            defaultPath: join(app.getPath("documents"), suggestedName),
+            filters: [{ name: "Recovery file", extensions: ["json"] }],
+          });
+          return result.canceled || result.filePath === undefined ? null : result.filePath;
+        },
+        pickOpenPath: async () => {
+          const window = mainWindow;
+          if (window === null) return null;
+          const result = await dialog.showOpenDialog(window, {
+            title: "Open a recovery file",
+            properties: ["openFile"],
+            filters: [{ name: "Recovery file", extensions: ["json"] }],
+          });
+          const [chosen] = result.filePaths;
+          return result.canceled || chosen === undefined ? null : chosen;
+        },
+        writeBytes: (path, bytes) => writeFile(path, bytes, { mode: 0o600 }),
+        readBytes: async (path) => new Uint8Array(await readFile(path)),
+      },
+      onIpc,
+    });
+    const coldStart = fileFromArgv(process.argv);
+    if (coldStart) attachFile(coldStart);
+    mainWindow = createWindow();
+    applyMenu();
+    // One check per launch, in the background: it writes the report the hub reads,
+    // and a failure is a line in the log rather than a dialog over someone's work.
+    // A dev run has no feed, so it does not ask.
+    void checkForUpdates({
+      dataDir: paths.data,
+      version: app.getVersion(),
+      channel: "alpha",
+      packaged: app.isPackaged,
+    }).then(({ error }) => {
+      if (error !== null && app.isPackaged) console.warn(`[update] ${error}`);
+    });
+    // The launcher is always the first page. A refusal — a file another window
+    // holds, a file that will not parse — is then a dialog over somewhere the
+    // user can work, rather than a modal above an empty window.
+    await showLauncher();
+    const first = pendingFiles.shift();
+    if (first) await openDocument(first);
+    app.on("activate", () => {
+      if (BrowserWindow.getAllWindows().length === 0) {
+        mainWindow = createWindow();
+        void showLauncher();
+      }
+    });
+  });
+  app.on("window-all-closed", () => {
+    if (process.platform !== "darwin") app.quit();
+  });
+  app.on("before-quit", () => {
+    void syncIpc?.stop();
+    void store?.close();
+  });
+}
+//# sourceMappingURL=index.js.map
