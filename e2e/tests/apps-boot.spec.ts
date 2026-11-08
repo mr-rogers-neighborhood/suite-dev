@@ -38,7 +38,8 @@ const CASES: readonly BootCase[] = [
   },
   {
     id: "planner",
-    marker: (page) => page.getByLabel("Capture a task"),
+    // A first run now lands on the start screen, so that is the rendered window to look for.
+    marker: (page) => page.getByRole("heading", { name: "Suite Planner" }),
     env: (root) => ({
       SUITE_PLANNER_USER_DATA: join(root, "user-data"),
       SUITE_PLANNER_LIBRARY: join(root, "documents"),
@@ -46,7 +47,7 @@ const CASES: readonly BootCase[] = [
   },
   {
     id: "budget",
-    marker: (page) => page.getByRole("button", { name: "Start a budget" }),
+    marker: (page) => page.getByRole("heading", { name: "Suite Budget" }),
     env: (root) => ({
       SUITE_BUDGET_USER_DATA: join(root, "user-data"),
       SUITE_BUDGET_LIBRARY: join(root, "documents"),

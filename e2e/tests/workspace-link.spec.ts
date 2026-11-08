@@ -84,7 +84,11 @@ test("planner opens its own workspace when the link names one it does not have",
   });
 
   try {
-    await expect(launched.page.getByLabel("Capture a task")).toBeVisible({ timeout: 30_000 });
+    // The link named a file that does not exist, so the app invents a workspace and shows the
+    // start screen for it. Usable is the claim; a phantom document would not be.
+    await expect(launched.page.getByRole("heading", { name: "Suite Planner" })).toBeVisible({
+      timeout: 30_000,
+    });
     const path = await plannerWorkspacePath(launched.page);
     expect(path).toContain("workspace.planner");
     expect(path).not.toContain("gone.planner");
@@ -106,7 +110,7 @@ test("budget shows its library when the link names a budget it does not have", a
   });
 
   try {
-    await expect(launched.page.getByRole("button", { name: "Start a budget" })).toBeVisible({
+    await expect(launched.page.getByRole("heading", { name: "Suite Budget" })).toBeVisible({
       timeout: 30_000,
     });
   } finally {
