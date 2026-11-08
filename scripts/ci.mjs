@@ -84,7 +84,9 @@ if (withE2e && (only === null || only === "suite-dev")) {
     report(results, "suite-dev", "stage");
     process.exit(1);
   }
-  const e2e = await run("xvfb-run", ["-a", "pnpm", "e2e"], sibling("suite-dev"));
+  // `pnpm e2e` puts itself on a virtual display when it can, so this does not wrap it
+  // again: the script owns that decision and says which display it chose.
+  const e2e = await run("pnpm", ["e2e"], sibling("suite-dev"));
   results.push({
     repo: "suite-dev",
     step: "e2e",

@@ -10,6 +10,7 @@ import {
   type Page,
   test,
 } from "@playwright/test";
+import { headlessSwitches, isolatedEnv } from "../fixtures/suite";
 
 /**
  * Installing an app, and replacing it with a newer one.
@@ -91,14 +92,14 @@ interface Hub {
 async function launchHub(root: string, env: Record<string, string>): Promise<Hub> {
   const app = await electron.launch({
     executablePath: ".dev/apps/start/suite-start",
+    args: [...headlessSwitches()],
     env: {
       ...process.env,
-      HOME: root,
+      ...isolatedEnv(root),
       SUITE_START_USER_DATA: join(root, "user-data"),
       SUITE_START_DATA: join(root, "data"),
-      SUITE_START_DOCUMENTS: join(root, "Documents"),
+      SUITE_START_DOCUMENTS: join(root, "documents"),
       SUITE_START_APPS_ROOT: join(root, "Applications", "Suite"),
-      XDG_DATA_HOME: join(root, ".local", "share"),
       ELECTRON_DISABLE_SECURITY_WARNINGS: "1",
       ...env,
     },
@@ -117,6 +118,16 @@ async function launchHub(root: string, env: Record<string, string>): Promise<Hub
       await app.close().catch(() => undefined);
     },
   };
+}
+
+/**
+ * The home directory the launched hub sees.
+ *
+ * Not the test's `root`: every app is given a private `HOME` (see `isolatedEnv`), so the
+ * paths the hub writes to — menu entries, icons — live under that copy, not beside it.
+ */
+function childHome(root: string): string {
+  return join(root, "home");
 }
 
 const key = existsSync(KEY_PATH) ? await readFile(KEY_PATH) : null;
@@ -146,13 +157,19 @@ test.describe("installing and updating from a signed feed", () => {
       expect(record.apps[0].executable).toContain("0.1.0");
 
       // 2. A managed install earns a menu entry, so it can be opened without the hub.
-      const entry = join(root, ".local", "share", "applications", `suite-${APP_ID}.desktop`);
+      const entry = join(
+        childHome(root),
+        ".local",
+        "share",
+        "applications",
+        `suite-${APP_ID}.desktop`,
+      );
       expect(await readFile(entry, "utf8")).toContain(`Exec="${join(appsRoot, "Canvas", "0.1.0")}`);
 
       // …and an icon that is the app's own. Every app used to get the hub's mark copied
       // under its name, which is indistinguishable from "the icon did not work".
       const installedIcon = join(
-        root,
+        childHome(root),
         ".local",
         "share",
         "icons",
@@ -171,7 +188,7 @@ test.describe("installing and updating from a signed feed", () => {
       await hub.page.getByRole("tab", { name: "Settings" }).click();
       const settings = await hub.page.locator("#panel-settings").innerText();
       expect(settings).toContain(join(appsRoot, "Canvas", "0.1.0"));
-      expect(settings).toContain(join(root, "Documents", "Canvas"));
+      expect(settings).toContain(join(root, "documents", "Canvas"));
       await hub.page.getByRole("tab", { name: "Apps" }).click();
       await hub.close();
 
@@ -228,7 +245,7 @@ test.describe("installing and updating from a signed feed", () => {
   test("uninstall leaves nothing behind, and takes no document", async () => {
     const root = await mkdtemp(join(tmpdir(), "suite-uninstall-spec-"));
     const appsRoot = join(root, "Applications", "Suite");
-    const documents = join(root, "Documents", "Canvas");
+    const documents = join(root, "documents", "Canvas");
 
     try {
       // A document is the one thing Start must never touch, so one is present throughout.
@@ -242,9 +259,15 @@ test.describe("installing and updating from a signed feed", () => {
       await hub.card.getByRole("button", { name: `Install ${APP_NAME}` }).click();
       await hub.card.getByRole("button", { name: "Open" }).waitFor({ timeout: 120_000 });
 
-      const entry = join(root, ".local", "share", "applications", `suite-${APP_ID}.desktop`);
+      const entry = join(
+        childHome(root),
+        ".local",
+        "share",
+        "applications",
+        `suite-${APP_ID}.desktop`,
+      );
       const icon = join(
-        root,
+        childHome(root),
         ".local",
         "share",
         "icons",

@@ -11,11 +11,25 @@ pnpm apps:stage     # the suite launches .dev/apps/*
 pnpm e2e
 ```
 
-A Linux machine with no display:
+## It does not take over your desktop
+
+These specs launch real Electron windows, and windows launched on your own display appear
+wherever the window manager decides — usually over whatever you were reading. So `pnpm e2e` runs
+the suite on a **virtual display** (`xvfb-run`, which is on any machine that can run Playwright
+under X): the windows are real, and none of them reaches your desktop.
+
+Watch them when watching is the point:
 
 ```sh
-xvfb-run -a pnpm e2e
+pnpm e2e --headed                          # on your display
+pnpm e2e --headed -- install.spec.ts       # one spec, visible
+pnpm e2e -- install.spec.ts                # one spec, off-screen
+pnpm e2e -- --grep "rollback"              # forward any Playwright argument
 ```
+
+A failing run still writes traces (`trace: retain-on-failure`) and screenshots into `.dev/test-results`,
+so nothing is lost by not watching. If `xvfb-run` is missing and `DISPLAY` is set, the script says so
+before the windows appear rather than pretending it is headless.
 
 If a previous run was killed, `e2e/fixtures/global-setup.ts` calls `stopStale()` first.
 

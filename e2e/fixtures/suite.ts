@@ -81,6 +81,58 @@ export function startExecutable(): string {
   return executable;
 }
 
+/**
+ * The environment every launched app gets, so none of them can reach the real machine.
+ *
+ * Redirecting `XDG_DATA_HOME` alone was not enough, and the gap was not theoretical: an app
+ * whose data directory is not overridden resolves it through Electron's `userData`, which on
+ * Linux is `$XDG_CONFIG_HOME/<name>` — and with `XDG_CONFIG_HOME` unset that is the
+ * developer's own config directory. A test hub was reading the real `installs.json`, listing
+ * the real `~/Applications/Suite`, and offering to uninstall what it found there.
+ *
+ * So `HOME` and all four XDG roots move into the test's temp directory. Nothing under the
+ * real home is reachable by anything the suite launches, whatever an app forgets to override.
+ */
+export function isolatedEnv(root: string): Record<string, string> {
+  const home = join(root, "home");
+  return {
+    HOME: home,
+    XDG_CONFIG_HOME: join(home, ".config"),
+    XDG_DATA_HOME: join(home, ".local", "share"),
+    XDG_STATE_HOME: join(home, ".local", "state"),
+    XDG_CACHE_HOME: join(home, ".cache"),
+  };
+}
+
+/**
+ * Switches an Electron app needs when there is no real display behind it.
+ *
+ * Xvfb has no GPU, and Electron treats a GPU process that will not start as fatal, so every
+ * app is launched with `--disable-gpu` in a headless run. The apps ignore arguments that begin
+ * with a dash, so this cannot be mistaken for a document to open.
+ */
+export function headlessSwitches(): readonly string[] {
+  return process.env.SUITE_E2E_HEADLESS === "1" ? ["--disable-gpu"] : [];
+}
+
+/**
+ * Refuse to launch an app against a real profile.
+ *
+ * The failure this prevents is silent: a suite that reads and writes the developer's own
+ * installs looks like a passing suite until it uninstalls something. A wrong `HOME` is
+ * almost always a caller that forgot to pass one, so it is caught here rather than found
+ * later as a card listing apps the test never installed.
+ */
+function assertIsolated(env: Readonly<Record<string, string | undefined>>, where: string): void {
+  const home = env.HOME;
+  if (home === undefined || !home.startsWith(tmpdir())) {
+    throw new Error(
+      `${where} would run against the real home directory (${home ?? "unset"}). ` +
+        "Pass a temp root through `isolatedEnv(root)`.",
+    );
+  }
+}
+
 export interface LaunchedApp {
   readonly app: ElectronApplication;
   readonly page: Page;
@@ -94,9 +146,10 @@ export async function launchCanvas(options: {
   const { workspace, profile } = options;
   const app = await electron.launch({
     executablePath: canvasExecutable(),
-    args: [workspace.files[profile]],
+    args: [...headlessSwitches(), workspace.files[profile]],
     env: {
       ...process.env,
+      ...isolatedEnv(workspace.root),
       // Two directories, and both are needed. `USER_DATA` is Electron's own — the single
       // instance lock lives there, so two copies of the shell need two of them or the second
       // quits. `DATA` is the document and sync state, and two windows sharing *that* would be
@@ -146,14 +199,11 @@ export async function launchStaged(
   }
   const launched = await electron.launch({
     executablePath: executable,
-    args: [...(options.args ?? [])],
+    args: [...headlessSwitches(), ...(options.args ?? [])],
     env: {
       ...process.env,
+      ...isolatedEnv(options.root),
       ELECTRON_DISABLE_SECURITY_WARNINGS: "1",
-      // A test never reads or writes the real per-user data directory: every app
-      // resolves it through `suitePaths`, which honours this. Without it a run
-      // leaves its temp paths in the developer's own profile.
-      XDG_DATA_HOME: join(options.root, "xdg-data"),
       ...options.env,
     },
     timeout: 60_000,
@@ -175,17 +225,25 @@ export async function launchStart(options: {
   env?: Record<string, string>;
 }): Promise<LaunchedApp> {
   const { root, files = [], env = {} } = options;
+  const environment = {
+    ...process.env,
+    ...isolatedEnv(root),
+    SUITE_START_USER_DATA: join(root, "user-data"),
+    SUITE_START_DATA: join(root, "data"),
+    SUITE_START_DOCUMENTS: join(root, "documents"),
+    // The install root too, and not only the data directory: this is what the hub reads to
+    // decide which apps exist and what it may replace. Left at its default it is the real
+    // `~/Applications/Suite`, so a test hub listed the developer's own installs and stood
+    // ready to update or uninstall them.
+    SUITE_START_APPS_ROOT: join(root, "applications"),
+    ELECTRON_DISABLE_SECURITY_WARNINGS: "1",
+    ...env,
+  };
+  assertIsolated(environment, "launchStart");
   const app = await electron.launch({
     executablePath: startExecutable(),
-    args: [...files],
-    env: {
-      ...process.env,
-      SUITE_START_USER_DATA: join(root, "user-data"),
-      SUITE_START_DATA: join(root, "data"),
-      SUITE_START_DOCUMENTS: join(root, "documents"),
-      ELECTRON_DISABLE_SECURITY_WARNINGS: "1",
-      ...env,
-    },
+    args: [...headlessSwitches(), ...files],
+    env: environment,
     timeout: 60_000,
   });
   const page = await app.firstWindow();
