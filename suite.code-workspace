@@ -62,6 +62,7 @@
       "*.tsx": "${capture}.test.tsx, ${capture}.stories.tsx, ${capture}.test.ts",
       "package.json": "tsconfig.json, tsconfig.*.json, biome.json, biome.jsonc, knip.json, knip.jsonc, .npmrc, vitest.config.ts, electron-builder.yml, electron.vite.config.ts, playwright.config.ts",
       "README.md": "SECURITY.md, CONTRIBUTING.md, CODE_OF_CONDUCT.md, LICENSE, AGENTS.md, CHANGELOG.md"
-    }
+    },
+    "java.configuration.updateBuildConfiguration": "interactive"
   }
 }
