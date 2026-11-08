@@ -48,6 +48,39 @@ describe("versionDisagreement", () => {
     expect(why).toContain("one commit");
   });
 
+  it("refuses a release whose workspace root disagrees with the app", () => {
+    // The case that produced a start-v0.3.12 tag holding a 0.3.11 AppImage: the root had been
+    // bumped, the app manifest had not, and every 0.3.11 install was told there was no update.
+    const why = versionDisagreement({
+      packageVersion: "0.3.11",
+      manifestVersion: "0.3.11",
+      repoVersion: "0.3.12",
+    });
+    expect(why).toContain("0.3.12");
+    expect(why).toContain("0.3.11");
+    expect(why).toContain("does not exist");
+  });
+
+  it("says nothing when the workspace root agrees", () => {
+    expect(
+      versionDisagreement({
+        packageVersion: "0.3.12",
+        manifestVersion: "0.3.12",
+        repoVersion: "0.3.12",
+      }),
+    ).toBeNull();
+  });
+
+  it("checks the root before the manifest, because it is the one nothing stamps", () => {
+    expect(
+      versionDisagreement({
+        packageVersion: "0.2.0",
+        manifestVersion: "0.1.0",
+        repoVersion: "0.3.0",
+      }),
+    ).toContain("repository root");
+  });
+
   it("refuses a package with no version at all", () => {
     expect(versionDisagreement({ packageVersion: null, manifestVersion: undefined })).toBe(
       "package.json names no version",

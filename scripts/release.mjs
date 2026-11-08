@@ -70,10 +70,20 @@ export function versionFromPackage(text) {
  *
  * `manifestVersion` is undefined for the hub, which ships no manifest.
  */
-export function versionDisagreement({ packageVersion, manifestVersion }) {
+export function versionDisagreement({ packageVersion, manifestVersion, repoVersion }) {
   if (packageVersion === null) return "package.json names no version";
-  if (manifestVersion === undefined) return null;
   if (manifestVersion === null) return "suite.app.json names no version";
+  if (repoVersion !== undefined && repoVersion !== null && repoVersion !== packageVersion) {
+    // The workspace root and the app manifest both carry a version, and only one of them is what
+    // electron-builder stamps. A release cut with the root saying 0.3.12 and the app saying 0.3.11
+    // produces a tag named 0.3.12 whose artifact is 0.3.11, and the feed then tells every 0.3.11
+    // install that there is nothing to update. Silent, and worse than a refusal.
+    return (
+      `the repository root says ${repoVersion} and the app says ${packageVersion}. ` +
+      "The artifact takes the app's version, so the tag would name a release that does not exist."
+    );
+  }
+  if (manifestVersion === undefined) return null;
   if (manifestVersion === packageVersion) return null;
   return (
     `package.json says ${packageVersion} and suite.app.json says ${manifestVersion}. ` +
@@ -223,7 +233,15 @@ async function releaseVersion(app) {
     manifestVersion = versionFromPackage(await readFile(manifestPath, "utf8"));
   }
 
-  const problem = versionDisagreement({ packageVersion, manifestVersion });
+  // The workspace root above the app directory carries its own version, which nothing stamps but
+  // everyone reads. When it disagrees, the tag and the artifact disagree.
+  let repoVersion;
+  const repoPackage = join(project, "..", "..", "package.json");
+  if (existsSync(repoPackage)) {
+    repoVersion = versionFromPackage(await readFile(repoPackage, "utf8"));
+  }
+
+  const problem = versionDisagreement({ packageVersion, manifestVersion, repoVersion });
   if (problem !== null) throw new Error(problem);
   return packageVersion;
 }
