@@ -29,9 +29,6 @@ _Done means:_ no CLI step is needed to bring a second device into a workspace.
 status. It should read the same content as [Status](STATUS.md) rather than become a second place to
 update.
 
-**6. A theme switch in Start.** The hub currently follows the desktop's light/dark preference and
-offers no override.
-
 ## Explicitly not planned
 
 | Not doing                       | Why                                                                     |
