@@ -56,42 +56,42 @@ removes as obsolete. Levels: 31 A, 24 AA, 31 AAA.
 
 ## Principle 2: Operable
 
-| SC     | Level | Criterion                     | Status  | How                                                                                     |
-| ------ | ----- | ----------------------------- | ------- | --------------------------------------------------------------------------------------- |
-| 2.1.1  | A     | Keyboard                      | Manual  | Sweep step 1.                                                                           |
-| 2.1.2  | A     | No Keyboard Trap              | Manual  | Sweep step 1, including inside dialogs.                                                 |
-| 2.1.3  | AAA   | Keyboard (No Exception)       | Manual  | As 2.1.1, with no pointer-only path allowed.                                            |
-| 2.1.4  | A     | Character Key Shortcuts       | **Gap** | Single-key shortcuts exist in Canvas and are not yet remappable or disableable.         |
-| 2.2.1  | A     | Timing Adjustable             | N/A     | No time limits on any interaction.                                                      |
-| 2.2.2  | A     | Pause, Stop, Hide             | Manual  | Sync status is the only moving content; it must not animate indefinitely.               |
-| 2.2.3  | AAA   | No Timing                     | N/A     | As 2.2.1.                                                                               |
-| 2.2.4  | AAA   | Interruptions                 | Manual  | Reminders are dismissable and do not steal focus.                                       |
-| 2.2.5  | AAA   | Re-authenticating             | N/A     | No sessions to expire.                                                                  |
-| 2.2.6  | AAA   | Timeouts                      | N/A     | No sessions.                                                                            |
-| 2.3.1  | A     | Three Flashes                 | Gated   | No flashing content exists; nothing animates above 3 times per second.                  |
-| 2.3.2  | AAA   | Three Flashes (Enhanced)      | N/A     | As 2.3.1.                                                                               |
-| 2.3.3  | AAA   | Animation from Interactions   | Manual  | Sweep step 4, reduce-motion.                                                            |
-| 2.4.1  | A     | Bypass Blocks                 | Gated   | A `<main>` landmark per screen; axe checks landmarks.                                   |
-| 2.4.2  | A     | Page Titled                   | Gated   | Each window sets a document title naming the app.                                       |
-| 2.4.3  | A     | Focus Order                   | Manual  | Sweep step 1.                                                                           |
-| 2.4.4  | A     | Link Purpose (In Context)     | Manual  | Links name their destination in text.                                                   |
-| 2.4.5  | AA    | Multiple Ways                 | N/A     | A single-document desktop app has one way in by design.                                 |
-| 2.4.6  | AA    | Headings and Labels           | Gated   | axe checks heading order and label presence.                                            |
-| 2.4.7  | AA    | Focus Visible                 | Gated   | One `FOCUS_RING` constant on every pressable primitive, held to 3:1.                    |
-| 2.4.8  | AAA   | Location                      | Manual  | The window title and rail name the current document.                                    |
-| 2.4.9  | AAA   | Link Purpose (Link Only)      | Manual  | As 2.4.4.                                                                               |
-| 2.4.10 | AAA   | Section Headings              | Manual  | Long screens group under headings.                                                      |
-| 2.4.11 | AA    | Focus Not Obscured (Minimum)  | Manual  | **New in 2.2.** Sweep step 1: scroll with the keyboard under the sticky rail.           |
-| 2.4.12 | AAA   | Focus Not Obscured (Enhanced) | Gap     | No sticky overlap at all is not yet guaranteed.                                         |
-| 2.4.13 | AAA   | Focus Appearance              | Manual  | The ring is 2px on a 2px offset; not formally verified against the AAA formula.         |
-| 2.5.1  | A     | Pointer Gestures              | Manual  | No multi-point or path gestures are required.                                           |
-| 2.5.2  | A     | Pointer Cancellation          | Gated   | Activation fires on up-event through native button semantics.                           |
-| 2.5.3  | AA    | Label in Name                 | Manual  | Visible label text must be contained in the accessible name.                            |
-| 2.5.4  | A     | Motion Actuation              | N/A     | No device-motion input.                                                                 |
-| 2.5.5  | AAA   | Target Size (Enhanced)        | Gap     | 44px is not enforced; AA's 24px is the target.                                          |
-| 2.5.6  | AAA   | Concurrent Input Mechanisms   | Manual  | Keyboard and pointer work simultaneously.                                               |
-| 2.5.7  | AA    | Dragging Movements            | **Gap** | **New in 2.2.** Canvas vault drop and card drag have no single-pointer alternative yet. |
-| 2.5.8  | AA    | Target Size (Minimum)         | Manual  | **New in 2.2.** 24×24 CSS px for icon buttons; measured during review.                  |
+| SC     | Level | Criterion                     | Status  | How                                                                                                                                                                                                                                                                                                        |
+| ------ | ----- | ----------------------------- | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2.1.1  | A     | Keyboard                      | Manual  | Sweep step 1.                                                                                                                                                                                                                                                                                              |
+| 2.1.2  | A     | No Keyboard Trap              | Manual  | Sweep step 1, including inside dialogs.                                                                                                                                                                                                                                                                    |
+| 2.1.3  | AAA   | Keyboard (No Exception)       | Manual  | As 2.1.1, with no pointer-only path allowed.                                                                                                                                                                                                                                                               |
+| 2.1.4  | A     | Character Key Shortcuts       | **Gap** | Single-key shortcuts exist in Canvas and are not yet remappable or disableable.                                                                                                                                                                                                                            |
+| 2.2.1  | A     | Timing Adjustable             | N/A     | No time limits on any interaction.                                                                                                                                                                                                                                                                         |
+| 2.2.2  | A     | Pause, Stop, Hide             | Manual  | Sync status is the only moving content; it must not animate indefinitely.                                                                                                                                                                                                                                  |
+| 2.2.3  | AAA   | No Timing                     | N/A     | As 2.2.1.                                                                                                                                                                                                                                                                                                  |
+| 2.2.4  | AAA   | Interruptions                 | Manual  | Reminders are dismissable and do not steal focus.                                                                                                                                                                                                                                                          |
+| 2.2.5  | AAA   | Re-authenticating             | N/A     | No sessions to expire.                                                                                                                                                                                                                                                                                     |
+| 2.2.6  | AAA   | Timeouts                      | N/A     | No sessions.                                                                                                                                                                                                                                                                                               |
+| 2.3.1  | A     | Three Flashes                 | Gated   | No flashing content exists; nothing animates above 3 times per second.                                                                                                                                                                                                                                     |
+| 2.3.2  | AAA   | Three Flashes (Enhanced)      | N/A     | As 2.3.1.                                                                                                                                                                                                                                                                                                  |
+| 2.3.3  | AAA   | Animation from Interactions   | Manual  | Sweep step 4, reduce-motion.                                                                                                                                                                                                                                                                               |
+| 2.4.1  | A     | Bypass Blocks                 | Gated   | A `<main>` landmark per screen; axe checks landmarks.                                                                                                                                                                                                                                                      |
+| 2.4.2  | A     | Page Titled                   | Gated   | Each window sets a document title naming the app.                                                                                                                                                                                                                                                          |
+| 2.4.3  | A     | Focus Order                   | Manual  | Sweep step 1.                                                                                                                                                                                                                                                                                              |
+| 2.4.4  | A     | Link Purpose (In Context)     | Manual  | Links name their destination in text.                                                                                                                                                                                                                                                                      |
+| 2.4.5  | AA    | Multiple Ways                 | N/A     | A single-document desktop app has one way in by design.                                                                                                                                                                                                                                                    |
+| 2.4.6  | AA    | Headings and Labels           | Gated   | axe checks heading order and label presence.                                                                                                                                                                                                                                                               |
+| 2.4.7  | AA    | Focus Visible                 | Gated   | One `FOCUS_RING` constant on every pressable primitive, held to 3:1.                                                                                                                                                                                                                                       |
+| 2.4.8  | AAA   | Location                      | Manual  | The window title and rail name the current document.                                                                                                                                                                                                                                                       |
+| 2.4.9  | AAA   | Link Purpose (Link Only)      | Manual  | As 2.4.4.                                                                                                                                                                                                                                                                                                  |
+| 2.4.10 | AAA   | Section Headings              | Manual  | Long screens group under headings.                                                                                                                                                                                                                                                                         |
+| 2.4.11 | AA    | Focus Not Obscured (Minimum)  | Manual  | **New in 2.2.** Sweep step 1: scroll with the keyboard under the sticky rail.                                                                                                                                                                                                                              |
+| 2.4.12 | AAA   | Focus Not Obscured (Enhanced) | Gap     | No sticky overlap at all is not yet guaranteed.                                                                                                                                                                                                                                                            |
+| 2.4.13 | AAA   | Focus Appearance              | Manual  | The ring is 2px on a 2px offset; not formally verified against the AAA formula.                                                                                                                                                                                                                            |
+| 2.5.1  | A     | Pointer Gestures              | Manual  | No multi-point or path gestures are required.                                                                                                                                                                                                                                                              |
+| 2.5.2  | A     | Pointer Cancellation          | Gated   | Activation fires on up-event through native button semantics.                                                                                                                                                                                                                                              |
+| 2.5.3  | AA    | Label in Name                 | Manual  | Visible label text must be contained in the accessible name.                                                                                                                                                                                                                                               |
+| 2.5.4  | A     | Motion Actuation              | N/A     | No device-motion input.                                                                                                                                                                                                                                                                                    |
+| 2.5.5  | AAA   | Target Size (Enhanced)        | Gap     | 44px is not enforced; AA's 24px is the target.                                                                                                                                                                                                                                                             |
+| 2.5.6  | AAA   | Concurrent Input Mechanisms   | Manual  | Keyboard and pointer work simultaneously.                                                                                                                                                                                                                                                                  |
+| 2.5.7  | AA    | Dragging Movements            | Manual  | **New in 2.2.** Measured in [drag-audit.md](drag-audit.md): eight of eleven drag interactions already have a non-drag path, because the card and section command menus are deep and the board nudges by arrow key. Three remain: arbitrary section resize, section link endpoints, connector bend handles. |
+| 2.5.8  | AA    | Target Size (Minimum)         | Manual  | **New in 2.2.** 24×24 CSS px for icon buttons; measured during review.                                                                                                                                                                                                                                     |
 
 ## Principle 3: Understandable
 
@@ -131,14 +131,14 @@ removes as obsolete. Levels: 31 A, 24 AA, 31 AAA.
 
 These are the honest list. Each is tracked, and none is claimed as working in `ACCESSIBILITY.md`.
 
-| SC     | What is missing                                                    |
-| ------ | ------------------------------------------------------------------ |
-| 2.1.4  | Canvas single-key shortcuts are not remappable.                    |
-| 2.4.12 | AAA. Sticky regions may overlap focused content in edge cases.     |
-| 2.5.5  | AAA. Targets are 24px, not 44px.                                   |
-| 2.5.7  | Canvas drag-and-drop has no keyboard or single-pointer equivalent. |
+| SC     | What is missing                                                |
+| ------ | -------------------------------------------------------------- |
+| 2.1.4  | Canvas single-key shortcuts are not remappable.                |
+| 2.4.12 | AAA. Sticky regions may overlap focused content in edge cases. |
+| 2.5.5  | AAA. Targets are 24px, not 44px.                               |
 
-Order of work: **2.5.7 first** (AA, real, and the only AA gap), then 2.1.4, then the AAA rows.
+Order of work: **2.1.4 first** (A, and the only gap that is unambiguously real), then the three
+2.5.7 items in [drag-audit.md](drag-audit.md), then the AAA rows.
 
 4.1.3 is a _verification_ gap rather than a known failure: the markup is right, and whether a reader
 hears it needs the screen-reader step to answer. Do not upgrade it to "working" until someone has
